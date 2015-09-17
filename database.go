@@ -25,11 +25,8 @@ func (db *DB) Connect(url, database, user, password string) {
 }
 
 func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
-	query = strings.Replace(query, `"`, "'", -1)
-	query = strings.Replace(query, "\n", " ", -1)
-	query = strings.Replace(query, "\t", "", -1)
-	query = strings.TrimSpace(query)
-	query = fmt.Sprintf(`{"query": "`+query+`"}`, params...)
+	query = processQuery(query, params...)
+	query = `{"query": "` + query + `"}`
 
 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(query))
 	if err != nil {
@@ -50,14 +47,39 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	return result.Content, nil
 }
 
-// func (db *DB) RunAQLTransaction(query []string, params ...interface{}) ([]byte, error) {
-// 	query = strings.Replace(query, `"`, "'", -1)
-// 	query = strings.Replace(query, "\n", " ", -1)
-// 	query = strings.Replace(query, "\t", "", -1)
-// 	query = strings.TrimSpace(query)
-// 	query = fmt.Sprintf(`{"query": "`+query+`"}`, params...)
+// func (db *DB) RunAQLTransaction(t *Transaction) ([]byte, error) {
+// 	readCol, err := json.Marshal(t.readCol)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 //
-// 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(query))
+// 	writeCol, err := json.Marshal(t.writeCol)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	var jsQueries string
+//
+// 	for _, query := range t.queries {
+// 		jsQueries = fmt.Sprintf(`%sdb._query("%s");`+"\n", jsQueries, query)
+// 	}
+//
+// 	query := fmt.Sprintf(`
+// 		{
+// 		  collections: {
+// 			 	read: %s
+// 		    write: %s
+// 		  },
+// 		  action: function () {
+// 		    var db = require("org/arangodb").db;
+// 		    %s
+// 		  }
+// 		}
+// 	`, readCol, writeCol, jsQueries)
+//
+// 	utils.Dump(query)
+//
+// 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/transaction", "application/json", bytes.NewBufferString(query))
 // 	if err != nil {
 // 		return nil, err
 // 	}
@@ -75,3 +97,13 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 //
 // 	return result.Content, nil
 // }
+
+func processQuery(query string, params ...interface{}) string {
+	query = strings.Replace(query, `"`, "'", -1)
+	query = strings.Replace(query, "\n", " ", -1)
+	query = strings.Replace(query, "\t", "", -1)
+	query = strings.TrimSpace(query)
+	query = fmt.Sprintf(query, params...)
+
+	return query
+}

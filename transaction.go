@@ -1,9 +1,13 @@
 package arangolite
 
 type Transaction struct {
-	Queries []string
+	readCol, writeCol, queries []string
 }
 
-func NewTransaction() *Transaction {
-	return &Transaction{}
+func NewTransaction(readCol, writeCol []string) *Transaction {
+	return &Transaction{readCol: readCol, writeCol: writeCol}
+}
+
+func (t *Transaction) AddAQL(query string, params ...interface{}) {
+	t.queries = append(t.queries, processQuery(query, params...))
 }
