@@ -1,15 +1,15 @@
 package arangolite
 
 type Model struct {
-	AraID  string `json:"_id,omitempty"`
-	AraRev string `json:"_rev,omitempty"`
-	AraKey string `json:"_key,omitempty"`
+	SysID  string `json:"_id,omitempty"`
+	SysRev string `json:"_rev,omitempty"`
+	SysKey string `json:"_key,omitempty"`
 	ID     string `json:"id,omitempty"`
 }
 
 func (m *Model) RewriteIDs() {
-	m.ID = m.AraID
-	m.AraID = ""
-	m.AraRev = ""
-	m.AraKey = ""
+	m.ID = m.SysKey
+	m.SysID = ""
+	m.SysRev = ""
+	m.SysKey = ""
 }
