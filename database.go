@@ -38,7 +38,7 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	query = processQuery(query, params...)
 	query = `{"query": "` + query + `"}`
 
-	db.logger.Printf("%s QUERY %s | %s", blue, reset, query)
+	db.logger.Printf("%s QUERY %s\n\n%s", blue, reset, indentJSON(query))
 
 	// start timer
 	start := time.Now()
@@ -60,11 +60,11 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	}
 
 	if result.Error {
-		db.logger.Printf("%s RESULT %s | %v | %s", blue, reset, latency, result.ErrorMessage)
+		db.logger.Printf("%s RESULT %s | %v\n\n%s", blue, reset, latency, result.ErrorMessage)
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	db.logger.Printf("%s RESULT %s | %v | %s", blue, reset, latency, string(result.Content))
+	db.logger.Printf("%s RESULT %s | %v\n\n%s", blue, reset, latency, indentJSON(string(result.Content)))
 
 	return result.Content, nil
 }
@@ -130,6 +130,13 @@ var (
 //
 // 	return result.Content, nil
 // }
+
+func indentJSON(in string) string {
+	b := &bytes.Buffer{}
+	_ = json.Indent(b, []byte(in), "", "  ")
+
+	return b.String()
+}
 
 func processQuery(query string, params ...interface{}) string {
 	query = strings.Replace(query, `"`, "'", -1)
