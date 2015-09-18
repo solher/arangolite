@@ -5,16 +5,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 )
 
 type DB struct {
 	url, database, user, password string
+	logger                        *log.Logger
 }
 
-func New() *DB {
-	return &DB{}
+func New(logEnabled bool) *DB {
+	var out *os.File
+
+	if logEnabled {
+		out = os.Stdout
+	}
+
+	return &DB{logger: log.New(out, fmt.Sprintf("\n[Arangolite] "), 0)}
 }
 
 func (db *DB) Connect(url, database, user, password string) {
@@ -28,11 +38,20 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	query = processQuery(query, params...)
 	query = `{"query": "` + query + `"}`
 
+	db.logger.Printf("%s QUERY %s | %s", blue, reset, query)
+
+	// start timer
+	start := time.Now()
+
 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(query))
 	if err != nil {
 		return nil, err
 	}
 	defer r.Body.Close()
+
+	// stop timer
+	end := time.Now()
+	latency := end.Sub(start)
 
 	result := &QueryResult{}
 
@@ -41,11 +60,25 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	}
 
 	if result.Error {
+		db.logger.Printf("%s RESULT %s | %v | %s", blue, reset, latency, result.ErrorMessage)
 		return nil, errors.New(result.ErrorMessage)
 	}
 
+	db.logger.Printf("%s RESULT %s | %v | %s", blue, reset, latency, string(result.Content))
+
 	return result.Content, nil
 }
+
+var (
+	green   = string([]byte{27, 91, 57, 55, 59, 52, 50, 109})
+	white   = string([]byte{27, 91, 57, 48, 59, 52, 55, 109})
+	yellow  = string([]byte{27, 91, 57, 55, 59, 52, 51, 109})
+	red     = string([]byte{27, 91, 57, 55, 59, 52, 49, 109})
+	blue    = string([]byte{27, 91, 57, 55, 59, 52, 52, 109})
+	magenta = string([]byte{27, 91, 57, 55, 59, 52, 53, 109})
+	cyan    = string([]byte{27, 91, 57, 55, 59, 52, 54, 109})
+	reset   = string([]byte{27, 91, 48, 109})
+)
 
 // func (db *DB) RunAQLTransaction(t *Transaction) ([]byte, error) {
 // 	readCol, err := json.Marshal(t.readCol)
