@@ -60,7 +60,7 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 	}
 
 	if result.Error {
-		db.logger.Printf("%s RESULT %s | %v\n\n%s", blue, reset, latency, result.ErrorMessage)
+		db.logger.Printf("%s RESULT %s | %v\n\nERROR: %s", blue, reset, latency, result.ErrorMessage)
 		return nil, errors.New(result.ErrorMessage)
 	}
 
