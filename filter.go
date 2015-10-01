@@ -130,7 +130,11 @@ func processFilter(f *Filter) (*ProcessedFilter, error) {
 			processedSort = fmt.Sprintf("%s%s %s, ", processedSort, split[0], split[1])
 		}
 
-		pf.Sort = processedSort[:len(processedSort)-2]
+		if len(processedSort) > 0 {
+			processedSort = processedSort[:len(processedSort)-2]
+		}
+
+		pf.Sort = processedSort
 	}
 
 	//
