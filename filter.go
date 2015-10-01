@@ -1,6 +1,12 @@
 package arangolite
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 type Filter struct {
 	Offset  int                    `json:"offset"`
@@ -78,28 +84,34 @@ const (
 	lteAQL = " <= "
 	eqAQL  = " == "
 	neqAQL = " != "
+	notAQL = "!"
 )
 
 func processFilter(filter *Filter) (*ProcessedFilter, error) {
-	// fields := filter.Fields
-	// dbNamedFields := make([]string, len(fields))
-
-	// for i, field := range fields {
-	// 	dbNamedFields[i] = utils.ToDBName(field)
-	// }
-
-	// if filter.Order != "" {
-	// 	order := strings.ToLower(filter.Order)
-	// 	matched, err := regexp.MatchString("\\A\\w+ (asc|desc)\\z", order)
-	// 	if err != nil || !matched {
-	// 		return nil, errors.New("invalid order filter")
-	// 	}
-	//
-	// 	split := strings.Split(filter.Order, " ")
-	// 	filter.Order = utils.ToDBName(split[0]) + " " + split[1]
-	// }
-	//
 	processedFilter := &ProcessedFilter{}
+
+	if filter.Sort != nil || len(filter.Sort) == 0 {
+		var processedSort string
+
+		for _, s := range filter.Sort {
+			matched, err := regexp.MatchString("\\A[0-9a-zA-Z.]+(\\s(?i)(asc|desc))?\\z", s)
+			if err != nil || !matched {
+				return nil, errors.New("invalid sort filter: " + s)
+			}
+
+			split := strings.Split(s, " ")
+			if len(split) == 1 {
+				split = append(split, "ASC")
+			} else {
+				split[1] = strings.ToUpper(split[1])
+			}
+
+			processedSort = fmt.Sprintf("%s%s %s, ", processedSort, split[0], split[1])
+		}
+
+		processedFilter.Sort = processedSort[:len(processedSort)-2]
+	}
+
 	//
 	// buffer := &bytes.Buffer{}
 	// err := processCondition(buffer, "", andAQL, "", filter.Where)
