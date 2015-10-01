@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -87,13 +88,33 @@ const (
 	notAQL = "!"
 )
 
-func processFilter(filter *Filter) (*ProcessedFilter, error) {
-	processedFilter := &ProcessedFilter{}
+func processFilter(f *Filter) (*ProcessedFilter, error) {
+	pf := &ProcessedFilter{}
 
-	if filter.Sort != nil || len(filter.Sort) == 0 {
+	if f.Offset != 0 {
+		if f.Offset < 0 {
+			return nil, fmt.Errorf("invalid offset filter: %d", f.Offset)
+		}
+
+		pf.OffsetLimit = strconv.Itoa(f.Offset)
+	}
+
+	if f.Limit != 0 {
+		if f.Limit < 0 {
+			return nil, fmt.Errorf("invalid limit filter: %d", f.Limit)
+		}
+
+		if len(pf.OffsetLimit) > 0 {
+			pf.OffsetLimit = pf.OffsetLimit + ", " + strconv.Itoa(f.Limit)
+		} else {
+			pf.OffsetLimit = strconv.Itoa(f.Limit)
+		}
+	}
+
+	if f.Sort != nil || len(f.Sort) == 0 {
 		var processedSort string
 
-		for _, s := range filter.Sort {
+		for _, s := range f.Sort {
 			matched, err := regexp.MatchString("\\A[0-9a-zA-Z.]+(\\s(?i)(asc|desc))?\\z", s)
 			if err != nil || !matched {
 				return nil, errors.New("invalid sort filter: " + s)
@@ -109,7 +130,7 @@ func processFilter(filter *Filter) (*ProcessedFilter, error) {
 			processedSort = fmt.Sprintf("%s%s %s, ", processedSort, split[0], split[1])
 		}
 
-		processedFilter.Sort = processedSort[:len(processedSort)-2]
+		pf.Sort = processedSort[:len(processedSort)-2]
 	}
 
 	//
@@ -126,7 +147,7 @@ func processFilter(filter *Filter) (*ProcessedFilter, error) {
 	// }
 	// processedFilter.Include = gormIncludes
 
-	return processedFilter, nil
+	return pf, nil
 }
 
 // func processCondition(buffer *bytes.Buffer, attribute, operator, sign string, condition interface{}) error {
