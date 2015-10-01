@@ -1,9 +1,11 @@
 package arangolite
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var offsetFilter = &Filter{
@@ -28,6 +30,7 @@ var basicWhereFilter = &Filter{
 		"password":   "qwertyuiop",
 		"age":        22,
 		"money":      3000.55,
+		"awesome":    true,
 		"graduated":  []int{2010, 2015},
 		"avg":        []float64{15.5, 13.24},
 		"birthPlace": []interface{}{"Chalon", "Macon"},
@@ -59,7 +62,7 @@ var notWhereFilter = &Filter{
 		"nOt": map[string]interface{}{
 			"or": []interface{}{
 				map[string]interface{}{"lastName": "Herfray"},
-				map[string]interface{}{"money": map[string]interface{}{"gte": 0.0}},
+				map[string]interface{}{"money": map[string]interface{}{"gte": 0}},
 				map[string]interface{}{"money": map[string]interface{}{"lte": 1000.5}}},
 		},
 	},
@@ -72,19 +75,19 @@ var pluckFilter = &Filter{
 // TestProcessFilter runs tests on the arangolite processFilter method.
 func TestProcessFilter(t *testing.T) {
 	a := assert.New(t)
-	// r := require.New(t)
+	r := require.New(t)
 
 	// Offset and limit filters
 	p, err := processFilter(offsetFilter)
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("1", p.OffsetLimit)
 
 	p, err = processFilter(limitFilter)
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("2", p.OffsetLimit)
 
 	p, err = processFilter(offsetLimitFilter)
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("3, 4", p.OffsetLimit)
 
 	p, err = processFilter(&Filter{Offset: -1})
@@ -97,42 +100,46 @@ func TestProcessFilter(t *testing.T) {
 
 	// Sort filter
 	p, err = processFilter(sortFilter)
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("firstName ASC, lastName DESC, age ASC", p.Sort)
 
 	p, err = processFilter(&Filter{Sort: []string{}})
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("", p.Sort)
 
 	// Where filter
 	p, err = processFilter(basicWhereFilter)
-	a.NoError(err)
-	a.Equal(`
-    password == 'qwertyuiop' && age == 22 && money == 3000.55 &&
-    graduated IN [2010, 2015] && avg IN [15.5, 13.24] && birthPlace IN ['Chalon', 'Macon']
-  `, p.Where)
+	r.NoError(err)
+	split := strings.Split(p.Where, " && ")
+	a.Equal(7, len(split))
+	expected := []string{
+		`awesome == true`,
+		`graduated IN [2010, 2015]`,
+		`avg IN [15.5, 13.24]`,
+		`birthPlace IN ['Chalon', 'Macon']`,
+		`password == 'qwertyuiop'`,
+		`age == 22`,
+		`money == 3000.55`,
+	}
+	for _, s := range split {
+		a.Contains(expected, s)
+	}
 
 	p, err = processFilter(orWhereFilter)
-	a.NoError(err)
-	a.Equal(`
-    (lastName == 'Fabien' || age > 23 || age < 26)
-  `, p.Where)
+	r.NoError(err)
+	a.Equal(`(lastName == 'Fabien' || age > 23 || age < 26)`, p.Where)
 
 	p, err = processFilter(andWhereFilter)
-	a.NoError(err)
-	a.Equal(`
-    (firstName != 'Toto' && money == 200.5)
-  `, p.Where)
+	r.NoError(err)
+	a.Equal(`(firstName != 'Toto' && money == 200.5)`, p.Where)
 
 	p, err = processFilter(notWhereFilter)
-	a.NoError(err)
-	a.Equal(`
-    !(firstName == 'Fabien') && !((lastName == 'Herfray' || money >= 0.0 || money <= 1000.5))
-  `, p.Where)
+	r.NoError(err)
+	a.Equal(`!(firstName == 'Fabien') && !((lastName == 'Herfray' || money >= 0 || money <= 1000.5))`, p.Where)
 
 	// Pluck filter
 	p, err = processFilter(pluckFilter)
-	a.NoError(err)
+	r.NoError(err)
 	a.Equal("_id", p.Pluck)
 
 	p, err = processFilter(&Filter{Pluck: "foo, bar"})
