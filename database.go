@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -34,8 +35,12 @@ func (db *DB) Connect(url, database, user, password string) {
 	db.password = password
 }
 
-func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
-	query = processQuery(query, params...)
+func (db *DB) RunAQL(filter *Filter, query string, params ...interface{}) ([]byte, error) {
+	query, err := buildAQLQuery(filter, query, params...)
+	if err != nil {
+		return nil, err
+	}
+
 	query = `{"query": "` + query + `"}`
 
 	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(query))
@@ -87,12 +92,60 @@ func indentJSON(in string) string {
 	return b.String()
 }
 
-func processQuery(query string, params ...interface{}) string {
+func buildAQLQuery(filter *Filter, query string, params ...interface{}) (string, error) {
 	query = strings.Replace(query, `"`, "'", -1)
 	query = strings.Replace(query, "\n", " ", -1)
 	query = strings.Replace(query, "\t", "", -1)
-	query = strings.TrimSpace(query)
 	query = fmt.Sprintf(query, params...)
 
-	return query
+	split := strings.Split(query, " ")
+	split2 := []string{}
+
+	for _, s := range split {
+		if len(s) == 0 {
+			continue
+		}
+		split2 = append(split2, s)
+	}
+
+	query = strings.Join(split2, " ")
+
+	if filter == nil {
+		return query, nil
+	}
+
+	aqlFilter, err := GetAQLFilter(filter)
+	if err != nil {
+		return "", err
+	}
+
+	regex, _ := regexp.Compile(`\s(?i)LET\s`)
+	matches := regex.FindStringSubmatchIndex(query)
+
+	if matches == nil {
+		query = fmt.Sprintf("LET result = (%s) %s", query, aqlFilter)
+	} else {
+		lastIndex := matches[len(matches)-1]
+
+		counter := 0
+		searching := false
+		for i, r := range query[lastIndex:] {
+			switch r {
+			case '(':
+				counter = counter + 1
+				searching = true
+			case ')':
+				counter = counter - 1
+			}
+
+			if searching && counter == 0 {
+				lastIndex = lastIndex + i + 2
+				break
+			}
+		}
+
+		query = fmt.Sprintf("%sLET result = (%s) %s", query[:lastIndex-1], query[lastIndex:], aqlFilter)
+	}
+
+	return query, nil
 }
