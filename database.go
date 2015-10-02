@@ -80,57 +80,6 @@ var (
 	reset   = string([]byte{27, 91, 48, 109})
 )
 
-// func (db *DB) RunAQLTransaction(t *Transaction) ([]byte, error) {
-// 	readCol, err := json.Marshal(t.readCol)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	writeCol, err := json.Marshal(t.writeCol)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	var jsQueries string
-//
-// 	for _, query := range t.queries {
-// 		jsQueries = fmt.Sprintf(`%sdb._query("%s");`+"\n", jsQueries, query)
-// 	}
-//
-// 	query := fmt.Sprintf(`
-// 		{
-// 		  collections: {
-// 			 	read: %s
-// 		    write: %s
-// 		  },
-// 		  action: function () {
-// 		    var db = require("org/arangodb").db;
-// 		    %s
-// 		  }
-// 		}
-// 	`, readCol, writeCol, jsQueries)
-//
-// 	utils.Dump(query)
-//
-// 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/transaction", "application/json", bytes.NewBufferString(query))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer r.Body.Close()
-//
-// 	result := &QueryResult{}
-//
-// 	if err := json.NewDecoder(r.Body).Decode(result); err != nil {
-// 		return nil, err
-// 	}
-//
-// 	if result.Error {
-// 		return nil, errors.New(result.ErrorMessage)
-// 	}
-//
-// 	return result.Content, nil
-// }
-
 func indentJSON(in string) string {
 	b := &bytes.Buffer{}
 	_ = json.Indent(b, []byte(in), "    ", "  ")
