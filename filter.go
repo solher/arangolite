@@ -1,6 +1,9 @@
 package arangolite
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Filter struct {
 	Offset  int                    `json:"offset"`
@@ -28,43 +31,32 @@ func GetFilter(jsonFilter string) (*Filter, error) {
 	return filter, nil
 }
 
-// func GetAQLFilter(filter *Filter) (string, error) {
-// 	gormFilter, err := processFilter(filter)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	if len(gormFilter.Fields) != 0 {
-// 		query = query.Select(gormFilter.Fields)
-// 	}
-//
-// 	if gormFilter.Offset != 0 {
-// 		query = query.Offset(gormFilter.Offset)
-// 	}
-//
-// 	if gormFilter.Limit != 0 {
-// 		query = query.Limit(gormFilter.Limit)
-// 	}
-//
-// 	if gormFilter.Order != "" {
-// 		query = query.Order(gormFilter.Order)
-// 	}
-//
-// 	if gormFilter.Where != "" {
-// 		query = query.Where(gormFilter.Where)
-// 	}
-//
-// 	for _, include := range gormFilter.Include {
-// 		if include.Relation == "" {
-// 			break
-// 		}
-//
-// 		if include.Where == "" {
-// 			query = query.Preload(include.Relation)
-// 		} else {
-// 			query = query.Preload(include.Relation, include.Where)
-// 		}
-// 	}
-//
-// 	return query, nil
-// }
+func GetAQLFilter(f *Filter) (string, error) {
+	fp := NewFilterProcessor("var")
+	filter, err := fp.Process(f)
+	if err != nil {
+		return "", err
+	}
+
+	aqlFilter := "FOR var IN result"
+
+	if len(filter.OffsetLimit) != 0 {
+		aqlFilter = fmt.Sprintf("%s LIMIT %s", aqlFilter, filter.OffsetLimit)
+	}
+
+	if len(filter.Sort) != 0 {
+		aqlFilter = fmt.Sprintf("%s SORT %s", aqlFilter, filter.Sort)
+	}
+
+	if len(filter.Where) != 0 {
+		aqlFilter = fmt.Sprintf("%s FILTER %s", aqlFilter, filter.Where)
+	}
+
+	if len(filter.Pluck) != 0 {
+		aqlFilter = fmt.Sprintf("%s COLLECT var2 = %s OPTIONS { method: 'sorted' } RETURN var2", aqlFilter, filter.Pluck)
+	} else {
+		aqlFilter = fmt.Sprintf("%s %s", aqlFilter, `RETURN var`)
+	}
+
+	return aqlFilter, nil
+}

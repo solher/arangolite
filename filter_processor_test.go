@@ -93,11 +93,11 @@ func TestProcessFilter(t *testing.T) {
 	a.Equal("3, 4", p.OffsetLimit)
 
 	p, err = fp.Process(&Filter{Offset: -1})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 
 	p, err = fp.Process(&Filter{Limit: -1})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 
 	// Sort filter
@@ -137,18 +137,26 @@ func TestProcessFilter(t *testing.T) {
 
 	p, err = fp.Process(notWhereFilter)
 	r.NoError(err)
-	a.Equal(`!(var.firstName == 'Fabien') && !((var.lastName == 'Herfray' || var.money >= 0 || var.money <= 1000.5))`, p.Where)
+	split = strings.Split(p.Where, " && ")
+	a.Equal(2, len(split))
+	expected = []string{
+		`!(var.firstName == 'Fabien')`,
+		`!((var.lastName == 'Herfray' || var.money >= 0 || var.money <= 1000.5))`,
+	}
+	for _, s := range split {
+		a.Contains(expected, s)
+	}
 
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"var.firstName": []interface{}{"foo", map[string]interface{}{"foo": "bar"}}}})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"foo", "bar"}}})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": map[string]interface{}{"var.firstName": "Fabien", "foo": "bar"}}})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 
 	// Pluck filter
@@ -157,6 +165,6 @@ func TestProcessFilter(t *testing.T) {
 	a.Equal("var._id", p.Pluck)
 
 	p, err = fp.Process(&Filter{Pluck: "foo, bar"})
-	a.Error(err)
+	r.Error(err)
 	a.Nil(p)
 }
