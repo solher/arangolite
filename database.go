@@ -25,7 +25,7 @@ func New(logEnabled bool) *DB {
 		out = os.Stdout
 	}
 
-	return &DB{logger: log.New(out, fmt.Sprintf("[Arangolite] "), 0)}
+	return &DB{logger: log.New(out, fmt.Sprintf("\n[Arangolite] "), 0)}
 }
 
 func (db *DB) Connect(url, database, user, password string) {
