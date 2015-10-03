@@ -35,7 +35,11 @@ func (db *DB) Connect(url, database, user, password string) {
 	db.password = password
 }
 
-func (db *DB) RunAQL(filter *Filter, query string, params ...interface{}) ([]byte, error) {
+func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
+	return db.RunFilteredAQL(nil, query, params...)
+}
+
+func (db *DB) RunFilteredAQL(filter *Filter, query string, params ...interface{}) ([]byte, error) {
 	if len(query) == 0 {
 		return nil, errors.New("the query cannot be empty")
 	}
