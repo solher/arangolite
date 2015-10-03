@@ -127,22 +127,8 @@ func checkWriteOperation(str string) bool {
 }
 
 func buildAQLQuery(filter *Filter, query string, params ...interface{}) (string, error) {
-	query = strings.Replace(query, `"`, "'", -1)
-	query = strings.Replace(query, "\n", " ", -1)
-	query = strings.Replace(query, "\t", "", -1)
 	query = fmt.Sprintf(query, params...)
-
-	split := strings.Split(query, " ")
-	split2 := []string{}
-
-	for _, s := range split {
-		if len(s) == 0 {
-			continue
-		}
-		split2 = append(split2, s)
-	}
-
-	query = strings.Join(split2, " ")
+	query = processAQLQuery(query)
 
 	if filter == nil {
 		return query, nil
@@ -182,4 +168,24 @@ func buildAQLQuery(filter *Filter, query string, params ...interface{}) (string,
 	}
 
 	return query, nil
+}
+
+func processAQLQuery(query string) string {
+	query = strings.Replace(query, `"`, "'", -1)
+	query = strings.Replace(query, "\n", " ", -1)
+	query = strings.Replace(query, "\t", "", -1)
+
+	split := strings.Split(query, " ")
+	split2 := []string{}
+
+	for _, s := range split {
+		if len(s) == 0 {
+			continue
+		}
+		split2 = append(split2, s)
+	}
+
+	query = strings.Join(split2, " ")
+
+	return query
 }
