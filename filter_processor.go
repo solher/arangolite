@@ -105,6 +105,19 @@ func (fp *FilterProcessor) Process(f *Filter) (*ProcessedFilter, error) {
 		pf.Where = buffer.String()
 	}
 
+	if err := fp.checkAQLOperators(pf.OffsetLimit); err != nil {
+		return nil, err
+	}
+	if err := fp.checkAQLOperators(pf.Pluck); err != nil {
+		return nil, err
+	}
+	if err := fp.checkAQLOperators(pf.Sort); err != nil {
+		return nil, err
+	}
+	if err := fp.checkAQLOperators(pf.Where); err != nil {
+		return nil, err
+	}
+
 	return pf, nil
 }
 
@@ -348,4 +361,28 @@ func (fp *FilterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 	}
 
 	return mapArr, nil
+}
+
+func (fp *FilterProcessor) checkAQLOperators(str string) error {
+	aqlOperators := []string{
+		"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
+		"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
+		"UPSERT",
+	}
+
+	regex := ""
+	for _, op := range aqlOperators {
+		regex = fmt.Sprintf("%s[^\\w](?i)%s([^\\w]|\\z)|", regex, op)
+	}
+
+	regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
+	cRegex, _ := regexp.Compile(regex)
+
+	matched := cRegex.FindStringIndex(str)
+
+	if matched != nil {
+		return errors.New("forbidden AQL operator detected")
+	}
+
+	return nil
 }
