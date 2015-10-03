@@ -372,7 +372,7 @@ func (fp *FilterProcessor) checkAQLOperators(str string) error {
 
 	regex := ""
 	for _, op := range aqlOperators {
-		regex = fmt.Sprintf("%s[^\\w](?i)%s([^\\w]|\\z)|", regex, op)
+		regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
 	}
 
 	regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])

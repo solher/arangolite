@@ -18,13 +18,21 @@ func TestRun(t *testing.T) {
 	r.Error(err)
 	a.Nil(result)
 
-	db = New(false)
-	db.Connect("", "", "", "")
 	result, err = db.RunAQL(&Filter{}, "FOR c IN customer RETURN c")
 	r.Error(err)
 	a.Nil(result)
 
 	result, err = db.RunAQL(&Filter{Offset: -1}, "FOR c IN customer RETURN c")
+	r.Error(err)
+	a.Nil(result)
+
+	result, err = db.RunAQL(&Filter{Offset: 1}, `INSERT {"_from": "foo/1", "_to": "bar/2"} IN docs`)
+	r.Error(err)
+	a.Nil(result)
+
+	db = New(false)
+	db.Connect("", "", "", "")
+	result, err = db.RunAQL(&Filter{}, "FOR c IN customer RETURN c")
 	r.Error(err)
 	a.Nil(result)
 }

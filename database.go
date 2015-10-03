@@ -37,12 +37,18 @@ func (db *DB) Connect(url, database, user, password string) {
 
 func (db *DB) RunAQL(filter *Filter, query string, params ...interface{}) ([]byte, error) {
 	if len(query) == 0 {
-		errors.New("the query cannot be empty")
+		return nil, errors.New("the query cannot be empty")
 	}
 
 	query, err := buildAQLQuery(filter, query, params...)
 	if err != nil {
 		return nil, err
+	}
+
+	if filter != nil {
+		if checkWriteOperation(query) {
+			return nil, errors.New("cannot filter on a writting operation")
+		}
 	}
 
 	query = `{"query": "` + query + `"}`
@@ -94,6 +100,26 @@ func indentJSON(in string) string {
 	_ = json.Indent(b, []byte(in), "    ", "  ")
 
 	return b.String()
+}
+
+func checkWriteOperation(str string) bool {
+	aqlOperators := []string{"REMOVE", "UPDATE", "REPLACE", "INSERT", "UPSERT"}
+
+	regex := ""
+	for _, op := range aqlOperators {
+		regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
+	}
+
+	regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
+	cRegex, _ := regexp.Compile(regex)
+
+	matched := cRegex.FindStringIndex(str)
+
+	if matched != nil {
+		return true
+	}
+
+	return false
 }
 
 func buildAQLQuery(filter *Filter, query string, params ...interface{}) (string, error) {
