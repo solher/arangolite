@@ -14,7 +14,7 @@ type Filter struct {
 	Options []string               `json:"options"`
 }
 
-type ProcessedFilter struct {
+type processedFilter struct {
 	OffsetLimit string
 	Sort        string
 	Where       string
@@ -32,7 +32,7 @@ func GetFilter(jsonFilter string) (*Filter, error) {
 }
 
 func GetAQLFilter(f *Filter) (string, error) {
-	fp := NewFilterProcessor("var")
+	fp := newFilterProcessor("var")
 	filter, err := fp.Process(f)
 	if err != nil {
 		return "", err

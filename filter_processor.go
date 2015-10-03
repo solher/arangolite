@@ -30,20 +30,20 @@ const (
 	neqAQL = " != "
 )
 
-type FilterProcessor struct {
+type filterProcessor struct {
 	VarName string
 }
 
-func NewFilterProcessor(varName string) *FilterProcessor {
+func newFilterProcessor(varName string) *filterProcessor {
 	if len(varName) == 0 {
 		varName = "var"
 	}
 
-	return &FilterProcessor{VarName: varName}
+	return &filterProcessor{VarName: varName}
 }
 
-func (fp *FilterProcessor) Process(f *Filter) (*ProcessedFilter, error) {
-	pf := &ProcessedFilter{}
+func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
+	pf := &processedFilter{}
 
 	if f.Offset != 0 {
 		if f.Offset < 0 {
@@ -121,7 +121,7 @@ func (fp *FilterProcessor) Process(f *Filter) (*ProcessedFilter, error) {
 	return pf, nil
 }
 
-func (fp *FilterProcessor) processCondition(buffer *bytes.Buffer, attribute, operator, sign string, condition interface{}) error {
+func (fp *filterProcessor) processCondition(buffer *bytes.Buffer, attribute, operator, sign string, condition interface{}) error {
 	switch condition.(type) {
 	case map[string]interface{}:
 		if err := fp.processUnaryCondition(buffer, attribute, operator, condition.(map[string]interface{})); err != nil {
@@ -140,7 +140,7 @@ func (fp *FilterProcessor) processCondition(buffer *bytes.Buffer, attribute, ope
 	return nil
 }
 
-func (fp *FilterProcessor) processUnaryCondition(buffer *bytes.Buffer, attribute, operator string, condition map[string]interface{}) error {
+func (fp *filterProcessor) processUnaryCondition(buffer *bytes.Buffer, attribute, operator string, condition map[string]interface{}) error {
 	for key := range condition {
 		lowerKey := strings.ToLower(key)
 
@@ -251,7 +251,7 @@ func (fp *FilterProcessor) processUnaryCondition(buffer *bytes.Buffer, attribute
 	return nil
 }
 
-func (fp *FilterProcessor) processOperation(buffer *bytes.Buffer, attribute, operator, sign string, condition interface{}) error {
+func (fp *filterProcessor) processOperation(buffer *bytes.Buffer, attribute, operator, sign string, condition interface{}) error {
 	switch condition := condition.(type) {
 	case bool:
 		if condition {
@@ -321,7 +321,7 @@ func (fp *FilterProcessor) processOperation(buffer *bytes.Buffer, attribute, ope
 	return nil
 }
 
-func (fp *FilterProcessor) processSimpleOperation(buffer *bytes.Buffer, attribute, sign, condition string) {
+func (fp *filterProcessor) processSimpleOperation(buffer *bytes.Buffer, attribute, sign, condition string) {
 	buffer.WriteString(fp.VarName)
 	buffer.WriteRune('.')
 	buffer.WriteString(attribute)
@@ -329,7 +329,7 @@ func (fp *FilterProcessor) processSimpleOperation(buffer *bytes.Buffer, attribut
 	buffer.WriteString(condition)
 }
 
-func (fp *FilterProcessor) processSimpleOperationStr(buffer *bytes.Buffer, attribute, sign, condition string) {
+func (fp *filterProcessor) processSimpleOperationStr(buffer *bytes.Buffer, attribute, sign, condition string) {
 	buffer.WriteString(fp.VarName)
 	buffer.WriteRune('.')
 	buffer.WriteString(attribute)
@@ -337,13 +337,13 @@ func (fp *FilterProcessor) processSimpleOperationStr(buffer *bytes.Buffer, attri
 	fp.writeQuotedString(buffer, condition)
 }
 
-func (fp *FilterProcessor) writeQuotedString(buffer *bytes.Buffer, str string) {
+func (fp *filterProcessor) writeQuotedString(buffer *bytes.Buffer, str string) {
 	buffer.WriteRune('\'')
 	buffer.WriteString(str)
 	buffer.WriteRune('\'')
 }
 
-func (fp *FilterProcessor) checkAndOrCondition(condition interface{}) ([]map[string]interface{}, error) {
+func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[string]interface{}, error) {
 	if reflect.TypeOf(condition) != reflect.TypeOf([]interface{}{}) {
 		return nil, fmt.Errorf("invalid condition, must be an array: %v", condition)
 	}
@@ -363,7 +363,7 @@ func (fp *FilterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 	return mapArr, nil
 }
 
-func (fp *FilterProcessor) checkAQLOperators(str string) error {
+func (fp *filterProcessor) checkAQLOperators(str string) error {
 	aqlOperators := []string{
 		"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
 		"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
