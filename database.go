@@ -40,6 +40,9 @@ func (db *DB) RunAQL(query string, params ...interface{}) ([]byte, error) {
 }
 
 func (db *DB) RunFilteredAQL(filter *Filter, query string, params ...interface{}) ([]byte, error) {
+	// start timer
+	start := time.Now()
+
 	if len(query) == 0 {
 		return nil, errors.New("the query cannot be empty")
 	}
@@ -57,10 +60,14 @@ func (db *DB) RunFilteredAQL(filter *Filter, query string, params ...interface{}
 
 	query = `{"query": "` + query + `"}`
 
+	// stop timer
+	end := time.Now()
+	latency := end.Sub(start)
+
 	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(query))
 
 	// start timer
-	start := time.Now()
+	start2 := time.Now()
 
 	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(query))
 	if err != nil {
@@ -69,8 +76,8 @@ func (db *DB) RunFilteredAQL(filter *Filter, query string, params ...interface{}
 	defer r.Body.Close()
 
 	// stop timer
-	end := time.Now()
-	latency := end.Sub(start)
+	end2 := time.Now()
+	latency2 := end2.Sub(start2)
 
 	result := &QueryResult{}
 
@@ -78,12 +85,15 @@ func (db *DB) RunFilteredAQL(filter *Filter, query string, params ...interface{}
 		return nil, err
 	}
 
+	db.logger.Printf("%s RESULT %s | Processing: %v | Execution: %v | Total: %v\n    ",
+		blue, reset, latency, latency2, latency+latency2)
+
 	if result.Error {
-		db.logger.Printf("%s RESULT %s | %v\n    ERROR: %s", blue, reset, latency, result.ErrorMessage)
+		db.logger.Printf("ERROR: %s", result.ErrorMessage)
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	db.logger.Printf("%s RESULT %s | %v\n    %s", blue, reset, latency, indentJSON(string(result.Content)))
+	db.logger.Printf(indentJSON(string(result.Content)))
 
 	return result.Content, nil
 }
