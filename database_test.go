@@ -7,6 +7,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRun runs tests on a typical query.
+func TestRun(t *testing.T) {
+	a := assert.New(t)
+	r := require.New(t)
+
+	db := New(true)
+	db.Connect("http://localhost:8000", "dbName", "foo", "bar")
+	result, err := db.RunAQL(&Filter{}, "")
+	r.Error(err)
+	a.Nil(result)
+
+	db = New(false)
+	db.Connect("", "", "", "")
+	result, err = db.RunAQL(&Filter{}, "FOR c IN customer RETURN c")
+	r.Error(err)
+	a.Nil(result)
+
+	result, err = db.RunAQL(&Filter{Offset: -1}, "FOR c IN customer RETURN c")
+	r.Error(err)
+	a.Nil(result)
+}
+
 // TestBuildAQLQuery runs tests on the arangolite BuildAQLQuery method.
 func TestBuildAQLQuery(t *testing.T) {
 	a := assert.New(t)

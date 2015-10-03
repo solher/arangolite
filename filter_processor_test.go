@@ -32,9 +32,11 @@ var basicWhereFilter = &Filter{
 		"age":        float64(22),
 		"money":      3000.55,
 		"awesome":    true,
+		"notAwesome": false,
 		"graduated":  []interface{}{float64(2010), float64(2015)},
 		"avg":        []interface{}{15.5, 13.24},
 		"birthPlace": []interface{}{"Chalon", "Macon"},
+		"bools":      []interface{}{true, false},
 	},
 }
 
@@ -77,7 +79,7 @@ var pluckFilter = &Filter{
 func TestProcessFilter(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
-	fp := NewFilterProcessor("var")
+	fp := NewFilterProcessor("")
 
 	// Offset and limit filters
 	p, err := fp.Process(offsetFilter)
@@ -109,11 +111,19 @@ func TestProcessFilter(t *testing.T) {
 	r.NoError(err)
 	a.Equal("", p.Sort)
 
+	p, err = fp.Process(&Filter{Sort: []string{"foo, bar"}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Sort: []string{"INSeRT ASC"}})
+	r.Error(err)
+	a.Nil(p)
+
 	// Where filter
 	p, err = fp.Process(basicWhereFilter)
 	r.NoError(err)
 	split := strings.Split(p.Where, " && ")
-	a.Equal(7, len(split))
+	a.Equal(9, len(split))
 	expected := []string{
 		`var.awesome == true`,
 		`var.graduated IN [2010, 2015]`,
@@ -122,6 +132,8 @@ func TestProcessFilter(t *testing.T) {
 		`var.password == 'qwertyuiop'`,
 		`var.age == 22`,
 		`var.money == 3000.55`,
+		`var.notAwesome == false`,
+		`var.bools IN [true, false]`,
 	}
 	for _, s := range split {
 		a.Contains(expected, s)
@@ -155,7 +167,15 @@ func TestProcessFilter(t *testing.T) {
 	r.Error(err)
 	a.Nil(p)
 
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"or": []interface{}{"foo", "bar"}}})
+	r.Error(err)
+	a.Nil(p)
+
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": map[string]interface{}{"var.firstName": "Fabien", "foo": "bar"}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"INSeRT"}}})
 	r.Error(err)
 	a.Nil(p)
 
@@ -165,6 +185,10 @@ func TestProcessFilter(t *testing.T) {
 	a.Equal("var._id", p.Pluck)
 
 	p, err = fp.Process(&Filter{Pluck: "foo, bar"})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Pluck: "INSeRT"})
 	r.Error(err)
 	a.Nil(p)
 }
