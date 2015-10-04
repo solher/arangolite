@@ -10,6 +10,15 @@ import (
 	"strings"
 )
 
+var (
+	aqlOp = []string{
+		"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
+		"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
+		"UPSERT",
+	}
+	aqlWriteOp = []string{"REMOVE", "UPDATE", "REPLACE", "INSERT", "UPSERT"}
+)
+
 const (
 	inArrayAQL    = " IN "
 	openArrayAQL  = "["
@@ -105,18 +114,15 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 		pf.Where = buffer.String()
 	}
 
-	if err := fp.checkAQLOperators(pf.OffsetLimit); err != nil {
+	if err := fp.checkAQLOperator(pf.Pluck); err != nil {
 		return nil, err
 	}
-	if err := fp.checkAQLOperators(pf.Pluck); err != nil {
+	if err := fp.checkAQLOperator(pf.Sort); err != nil {
 		return nil, err
 	}
-	if err := fp.checkAQLOperators(pf.Sort); err != nil {
-		return nil, err
-	}
-	if err := fp.checkAQLOperators(pf.Where); err != nil {
-		return nil, err
-	}
+	// if err := fp.checkAQLOperators(pf.Where); err != nil {
+	// 	return nil, err
+	// }
 
 	return pf, nil
 }
@@ -364,24 +370,37 @@ func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 }
 
 func (fp *filterProcessor) checkAQLOperators(str string) error {
-	aqlOperators := []string{
-		"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
-		"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
-		"UPSERT",
-	}
+	// aqlOperators := []string{
+	// 	"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
+	// 	"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
+	// 	"UPSERT",
+	// }
+	//
+	// regex := ""
+	// for _, op := range aqlOperators {
+	// 	regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
+	// }
+	//
+	// regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
+	// cRegex, _ := regexp.Compile(regex)
+	//
+	// matched := cRegex.FindStringIndex(str)
+	//
+	// if matched != nil {
+	// 	return errors.New("forbidden AQL operator detected")
+	// }
 
-	regex := ""
-	for _, op := range aqlOperators {
-		regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
-	}
+	return nil
+}
 
-	regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
-	cRegex, _ := regexp.Compile(regex)
+func (fp *filterProcessor) checkAQLOperator(op string) error {
+	upperOp := strings.ToUpper(op)
 
-	matched := cRegex.FindStringIndex(str)
-
-	if matched != nil {
-		return errors.New("forbidden AQL operator detected")
+	for _, op := range aqlOp {
+		matched, err := regexp.MatchString("_?"+op, upperOp)
+		if err != nil || matched {
+			return errors.New("forbidden AQL operator detected: " + op)
+		}
 	}
 
 	return nil
