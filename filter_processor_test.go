@@ -71,10 +71,6 @@ var notWhereFilter = &Filter{
 	},
 }
 
-var pluckFilter = &Filter{
-	Pluck: "_id",
-}
-
 // TestProcessFilter runs tests on the filter processor Process method.
 func TestProcessFilter(t *testing.T) {
 	a := assert.New(t)
@@ -176,19 +172,6 @@ func TestProcessFilter(t *testing.T) {
 	a.Nil(p)
 
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"INSeRT"}}})
-	r.Error(err)
-	a.Nil(p)
-
-	// Pluck filter
-	p, err = fp.Process(pluckFilter)
-	r.NoError(err)
-	a.Equal("var._id", p.Pluck)
-
-	p, err = fp.Process(&Filter{Pluck: "foo, bar"})
-	r.Error(err)
-	a.Nil(p)
-
-	p, err = fp.Process(&Filter{Pluck: "INSeRT"})
 	r.Error(err)
 	a.Nil(p)
 }

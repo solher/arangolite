@@ -100,15 +100,6 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 		pf.Sort = processedSort[:len(processedSort)-2]
 	}
 
-	if len(f.Pluck) != 0 {
-		matched, err := regexp.MatchString("\\A[0-9a-zA-Z_][0-9a-zA-Z._-]*\\z", f.Pluck)
-		if err != nil || !matched {
-			return nil, errors.New("invalid pluck filter: " + f.Pluck)
-		}
-
-		pf.Pluck = fp.VarName + "." + f.Pluck
-	}
-
 	if f.Where != nil && len(f.Where) != 0 {
 		buffer := &bytes.Buffer{}
 		if err := fp.processCondition(buffer, "", andAQL, "", f.Where); err != nil {
@@ -366,13 +357,11 @@ func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 func (fp *filterProcessor) checkFilter(filter *Filter) error {
 	c := make(chan error)
 
-	go func() { fp.checkAQLOperators(filter.Pluck, c) }()
-
 	for _, v := range filter.Sort {
 		go func(v string) { fp.checkAQLOperators(v, c) }(v)
 	}
 
-	counter := 1 + len(filter.Sort) + fp.checkWhereFilter(filter.Where, c)
+	counter := len(filter.Sort) + fp.checkWhereFilter(filter.Where, c)
 
 	for i := 0; i < counter; i++ {
 		if err := <-c; err != nil {

@@ -21,10 +21,10 @@ func TestGetFilter(t *testing.T) {
 	a.EqualValues(&Filter{}, filter)
 
 	filter, err = GetFilter(`{"offset": 1, "limit": 2, "sort": ["age desc", "money"],
-    "pluck": "firstName", "options": ["details"]}`)
+    "options": ["details"]}`)
 	r.NoError(err)
 	a.EqualValues(&Filter{Offset: 1, Limit: 2, Sort: []string{"age desc", "money"},
-		Pluck: "firstName", Options: []string{"details"}}, filter)
+		Options: []string{"details"}}, filter)
 
 	filter, err = GetFilter(`{"where": {"age": {"gte": 18}}}`)
 	r.NoError(err)
@@ -37,13 +37,13 @@ func TestGetAQLFilter(t *testing.T) {
 	r := require.New(t)
 
 	filter, err := GetFilter(`{"offset": 1, "limit": 2, "sort": ["age desc", "money"],
-    "where": {"age": {"gte": 18}}, "pluck": "firstName", "options": ["details"]}`)
+    "where": {"age": {"gte": 18}}, "options": ["details"]}`)
 	r.NoError(err)
 
 	aqlFilter, err := GetAQLFilter(filter)
 	r.NoError(err)
 	a.EqualValues(
-		`FOR var IN result LIMIT 1, 2 SORT var.age DESC, var.money ASC FILTER var.age >= 18 COLLECT var2 = var.firstName OPTIONS { method: 'sorted' } RETURN var2`,
+		`FOR var IN result LIMIT 1, 2 SORT var.age DESC, var.money ASC FILTER var.age >= 18 RETURN var`,
 		aqlFilter)
 
 	aqlFilter, err = GetAQLFilter(&Filter{})

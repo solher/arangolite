@@ -11,7 +11,6 @@ type Filter struct {
 	Limit   int                    `json:"limit"`
 	Sort    []string               `json:"sort"`
 	Where   map[string]interface{} `json:"where"`
-	Pluck   string                 `json:"pluck"`
 	Options []string               `json:"options"`
 }
 
@@ -19,7 +18,6 @@ type processedFilter struct {
 	OffsetLimit string
 	Sort        string
 	Where       string
-	Pluck       string
 }
 
 // GetFilter converts a JSON filter to a Filter object.
@@ -55,11 +53,7 @@ func GetAQLFilter(f *Filter) (string, error) {
 		aqlFilter = fmt.Sprintf("%s FILTER %s", aqlFilter, filter.Where)
 	}
 
-	if len(filter.Pluck) != 0 {
-		aqlFilter = fmt.Sprintf("%s COLLECT var2 = %s OPTIONS { method: 'sorted' } RETURN var2", aqlFilter, filter.Pluck)
-	} else {
-		aqlFilter = fmt.Sprintf("%s %s", aqlFilter, `RETURN var`)
-	}
+	aqlFilter = aqlFilter + ` RETURN var`
 
 	return aqlFilter, nil
 }
