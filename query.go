@@ -13,7 +13,6 @@ import (
 
 type Query struct {
 	aql                   string
-	filter                *processedFilter
 	processTime, execTime time.Duration
 }
 

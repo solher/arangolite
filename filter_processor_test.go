@@ -79,7 +79,7 @@ var pluckFilter = &Filter{
 func TestProcessFilter(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
-	fp := NewFilterProcessor("")
+	fp := newFilterProcessor("")
 
 	// Offset and limit filters
 	p, err := fp.Process(offsetFilter)
