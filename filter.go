@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// Filter defines a way of filtering AQL queries.
 type Filter struct {
 	Offset  int                    `json:"offset"`
 	Limit   int                    `json:"limit"`
@@ -21,6 +22,7 @@ type processedFilter struct {
 	Pluck       string
 }
 
+// GetFilter converts a JSON filter to a Filter object.
 func GetFilter(jsonFilter string) (*Filter, error) {
 	filter := &Filter{}
 
@@ -31,6 +33,7 @@ func GetFilter(jsonFilter string) (*Filter, error) {
 	return filter, nil
 }
 
+// GetAQLFilter converts a Filter object to its translation in AQL.
 func GetAQLFilter(f *Filter) (string, error) {
 	fp := newFilterProcessor("var")
 	filter, err := fp.Process(f)

@@ -118,16 +118,6 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 		pf.Where = buffer.String()
 	}
 
-	// if err := fp.checkAQLOperators(pf.Pluck); err != nil {
-	// 	return nil, err
-	// }
-	// if err := fp.checkAQLOperators(pf.Sort); err != nil {
-	// 	return nil, err
-	// }
-	// if err := fp.checkAQLOperators(pf.Where); err != nil {
-	// 	return nil, err
-	// }
-
 	return pf, nil
 }
 
@@ -418,6 +408,7 @@ func (fp *filterProcessor) checkAQLOperators(op string, c chan error) {
 	for _, op := range aqlOp {
 		if strings.Contains(upperOp, op) {
 			c <- errors.New("forbidden AQL operator detected: " + op)
+			return
 		}
 	}
 

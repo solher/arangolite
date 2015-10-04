@@ -2,6 +2,8 @@ package arangolite
 
 import "encoding/json"
 
+// QueryResult represents the ArangoDB results returned by the REST API when an
+// AQL query is executed.
 type QueryResult struct {
 	HasMore      bool            `json:"hasMore"`
 	Error        bool            `json:"error"`

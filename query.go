@@ -11,11 +11,13 @@ import (
 	"time"
 )
 
+// Query represents an AQL query.
 type Query struct {
 	aql                   string
 	processTime, execTime time.Duration
 }
 
+// NewQuery returns a new Query object.
 func NewQuery(aql string, params ...interface{}) *Query {
 	start := time.Now()
 
@@ -27,6 +29,8 @@ func NewQuery(aql string, params ...interface{}) *Query {
 	return &Query{aql: aql, processTime: end.Sub(start)}
 }
 
+// Filter process the Filter object and replace the Query aql field with the
+// filtered version.
 func (q *Query) Filter(filter *Filter) error {
 	if filter == nil || len(q.aql) == 0 {
 		return nil
@@ -77,6 +81,7 @@ func (q *Query) Filter(filter *Filter) error {
 	return nil
 }
 
+// Run executes the Query into the database passed as argument.
 func (q *Query) Run(db *DB) ([]byte, error) {
 	q.aql = `{"query": "` + q.aql + `"}`
 	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(q.aql))
