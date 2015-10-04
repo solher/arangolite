@@ -56,10 +56,10 @@ func (q *Query) Filter(filter *Filter) error {
 		for i, r := range q.aql[lastIndex:] {
 			switch r {
 			case '(':
-				counter = counter + 1
+				counter++
 				searching = true
 			case ')':
-				counter = counter - 1
+				counter--
 			}
 
 			if searching && counter == 0 {
@@ -130,27 +130,14 @@ func processAQLQuery(query string) string {
 	return query
 }
 
-func checkWriteOperation(str string) bool {
-	// start := time.Now()
-	//
-	// aqlOperators := []string{"REMOVE", "UPDATE", "REPLACE", "INSERT", "UPSERT"}
-	//
-	// regex := ""
-	// for _, op := range aqlOperators {
-	// 	regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
-	// }
-	//
-	// regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
-	// cRegex, _ := regexp.Compile(regex)
-	//
-	// matched := cRegex.FindStringIndex(str)
-	//
-	// if matched != nil {
-	// 	return true
-	// }
-	//
-	// end := time.Now()
-	// utils.Dump(end.Sub(start))
+func checkWriteOperation(aql string) bool {
+	upperAQL := strings.ToUpper(aql)
+
+	for _, op := range aqlWriteOp {
+		if strings.Contains(upperAQL, op) {
+			return true
+		}
+	}
 
 	return false
 }

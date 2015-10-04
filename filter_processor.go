@@ -52,6 +52,10 @@ func newFilterProcessor(varName string) *filterProcessor {
 }
 
 func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
+	if err := fp.checkFilter(f); err != nil {
+		return nil, err
+	}
+
 	pf := &processedFilter{}
 
 	if f.Offset != 0 {
@@ -114,12 +118,12 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 		pf.Where = buffer.String()
 	}
 
-	if err := fp.checkAQLOperator(pf.Pluck); err != nil {
-		return nil, err
-	}
-	if err := fp.checkAQLOperator(pf.Sort); err != nil {
-		return nil, err
-	}
+	// if err := fp.checkAQLOperators(pf.Pluck); err != nil {
+	// 	return nil, err
+	// }
+	// if err := fp.checkAQLOperators(pf.Sort); err != nil {
+	// 	return nil, err
+	// }
 	// if err := fp.checkAQLOperators(pf.Where); err != nil {
 	// 	return nil, err
 	// }
@@ -369,39 +373,53 @@ func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 	return mapArr, nil
 }
 
-func (fp *filterProcessor) checkAQLOperators(str string) error {
-	// aqlOperators := []string{
-	// 	"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
-	// 	"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
-	// 	"UPSERT",
-	// }
-	//
-	// regex := ""
-	// for _, op := range aqlOperators {
-	// 	regex = fmt.Sprintf("%s([^\\w]|\\A)(?i)%s([^\\w]|\\z)|", regex, op)
-	// }
-	//
-	// regex = fmt.Sprintf("(%s)", regex[:len(regex)-1])
-	// cRegex, _ := regexp.Compile(regex)
-	//
-	// matched := cRegex.FindStringIndex(str)
-	//
-	// if matched != nil {
-	// 	return errors.New("forbidden AQL operator detected")
-	// }
+func (fp *filterProcessor) checkFilter(filter *Filter) error {
+	c := make(chan error)
 
-	return nil
-}
+	go func() { fp.checkAQLOperators(filter.Pluck, c) }()
 
-func (fp *filterProcessor) checkAQLOperator(op string) error {
-	upperOp := strings.ToUpper(op)
+	for _, v := range filter.Sort {
+		go func(v string) { fp.checkAQLOperators(v, c) }(v)
+	}
 
-	for _, op := range aqlOp {
-		matched, err := regexp.MatchString("_?"+op, upperOp)
-		if err != nil || matched {
-			return errors.New("forbidden AQL operator detected: " + op)
+	counter := 1 + len(filter.Sort) + fp.checkWhereFilter(filter.Where, c)
+
+	for i := 0; i < counter; i++ {
+		if err := <-c; err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (fp *filterProcessor) checkWhereFilter(filter interface{}, c chan error) int {
+	var counter int
+
+	switch f := filter.(type) {
+	case map[string]interface{}:
+		for k := range f {
+			counter++
+			go func() { fp.checkAQLOperators(k, c) }()
+			fp.checkWhereFilter(f[k], c)
+		}
+	case []interface{}:
+		for _, v := range f {
+			fp.checkWhereFilter(v, c)
+		}
+	}
+
+	return counter
+}
+
+func (fp *filterProcessor) checkAQLOperators(op string, c chan error) {
+	upperOp := strings.ToUpper(op)
+
+	for _, op := range aqlOp {
+		if strings.Contains(upperOp, op) {
+			c <- errors.New("forbidden AQL operator detected: " + op)
+		}
+	}
+
+	c <- nil
 }
