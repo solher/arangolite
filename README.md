@@ -18,40 +18,40 @@ To install Arangolite:
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+  "encoding/json"
+  "fmt"
 
-	"github.com/solher/arangolite"
+  "github.com/solher/arangolite"
 )
 
 type Node struct {
-	arangolite.Document
+  arangolite.Document
 }
 
 func main() {
-	db := arangolite.New(true)
-	db.Connect("http://localhost:8000", "testDB", "user", "password")
+  db := arangolite.New(true)
+  db.Connect("http://localhost:8000", "testDB", "user", "password")
 
-	key := "47473545749"
+  key := "47473545749"
 
-	r, err := db.RunAQL(`
+  r, err := db.RunAQL(`
     FOR n
     IN nodes
     FILTER n._key == %s
     RETURN n
   `, key)
 
-	if err != nil {
-		panic(err)
-	}
+  if err != nil {
+    panic(err)
+  }
 
-	nodes := []Node{}
+  nodes := []Node{}
 
-	if err = json.Unmarshal(r, &nodes); err != nil {
-		panic(err)
-	}
+  if err = json.Unmarshal(r, &nodes); err != nil {
+    panic(err)
+  }
 
-	fmt.Printf("%v", nodes)
+  fmt.Printf("%v", nodes)
 }
 
 // OUTPUT:
@@ -69,16 +69,16 @@ func main() {
 ```go
 // Document represents a basic ArangoDB document
 type Document struct {
-	ID  string `json:"_id,omitempty"`
-	Rev string `json:"_rev,omitempty"`
-	Key string `json:"_key,omitempty"`
+  ID  string `json:"_id,omitempty"`
+  Rev string `json:"_rev,omitempty"`
+  Key string `json:"_key,omitempty"`
 }
 
 // Edge represents a basic ArangoDB edge
 type Edge struct {
-	Document
-	From string `json:"_from,omitempty"`
-	To   string `json:"_to,omitempty"`
+  Document
+  From string `json:"_from,omitempty"`
+  To   string `json:"_to,omitempty"`
 }
 ```
 
@@ -93,10 +93,10 @@ Its goal is to provide an easy way of converting JSON filters passed through que
 // Filter defines a way of filtering AQL queries.
 type Filter struct {
   Offset  int                    `json:"offset"`
-	Limit   int                    `json:"limit"`
-	Sort    []string               `json:"sort"`
-	Where   map[string]interface{} `json:"where"`
-	Options []string               `json:"options"`
+  Limit   int                    `json:"limit"`
+  Sort    []string               `json:"sort"`
+  Where   map[string]interface{} `json:"where"`
+  Options []string               `json:"options"`
 }
 ```
 
@@ -150,36 +150,36 @@ RETURN var
 
 ```go
 func main() {
-	db := arangolite.New(true)
-	db.Connect("http://localhost:8000", "testDB", "user", "password")
+  db := arangolite.New(true)
+  db.Connect("http://localhost:8000", "testDB", "user", "password")
 
   filter, err := arangolite.GetFilter(`{"limit": 2}`)
-	if err != nil {
-		panic(err)
-	}
+  if err != nil {
+    panic(err)
+  }
 
 	q := arangolite.NewQuery(`
-      FOR n
-      IN nodes
-      RETURN n
-    `)
+    FOR n
+    IN nodes
+    RETURN n
+  `)
 
-	if err := q.Filter(filter); err != nil {
-		panic(err)
-	}
+  if err := q.Filter(filter); err != nil {
+    panic(err)
+  }
 
-	r, err := q.Run(db)
-	if err != nil {
-		panic(err)
-	}
+  r, err := q.Run(db)
+  if err != nil {
+    panic(err)
+  }
 
-	nodes := []Node{}
+  nodes := []Node{}
 
-	if err = json.Unmarshal(r, &nodes); err != nil {
-		panic(err)
-	}
+  if err = json.Unmarshal(r, &nodes); err != nil {
+    panic(err)
+  }
 
-	fmt.Printf("%v", nodes)
+  fmt.Printf("%v", nodes)
 }
 
 // OUTPUT:
