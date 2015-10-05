@@ -141,6 +141,7 @@ RETURN var
 
 - `and`: Logical AND operator.
 - `or`: Logical OR operator.
+- `not`: Logical NOT operator.
 - `gt`, `gte`: Numerical greater than (>); greater than or equal (>=).
 - `lt`, `lte`: Numerical less than (<); less than or equal (<=).
 - `eq`, `neq`: Equal (==); non equal (!=).
@@ -152,16 +153,16 @@ func main() {
 	db := arangolite.New(true)
 	db.Connect("http://localhost:8000", "testDB", "user", "password")
 
+  filter, err := arangolite.GetFilter(`{"limit": 2}`)
+	if err != nil {
+		panic(err)
+	}
+
 	q := arangolite.NewQuery(`
       FOR n
       IN nodes
       RETURN n
     `)
-
-	filter, err := arangolite.GetFilter(`{"limit": 2}`)
-	if err != nil {
-		panic(err)
-	}
 
 	if err := q.Filter(filter); err != nil {
 		panic(err)
