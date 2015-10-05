@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -87,7 +86,7 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(q.aql))
 
 	start := time.Now()
-	r, err := http.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(q.aql))
+	r, err := db.conn.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(q.aql))
 	end := time.Now()
 	q.execTime = end.Sub(start)
 

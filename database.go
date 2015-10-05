@@ -4,12 +4,14 @@ package arangolite
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 )
 
 // DB represents an access to an ArangoDB database.
 type DB struct {
 	url, database, user, password string
+	conn                          *http.Client
 	logger                        *log.Logger
 }
 
@@ -21,7 +23,7 @@ func New(logEnabled bool) *DB {
 		out = os.Stdout
 	}
 
-	return &DB{logger: log.New(out, fmt.Sprintf("\n[Arangolite] "), 0)}
+	return &DB{conn: &http.Client{}, logger: log.New(out, fmt.Sprintf("\n[Arangolite] "), 0)}
 }
 
 // Connect initialize a DB object with the database url and credentials.
