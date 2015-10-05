@@ -174,4 +174,32 @@ func TestProcessFilter(t *testing.T) {
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"INSeRT"}}})
 	r.Error(err)
 	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"eq": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"neq": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"gt": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"gte": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"lt": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"lte": 1}}})
+	r.Error(err)
+	a.Nil(p)
+
+	p, err = fp.Process(&Filter{Where: map[string]interface{}{"not": 1}})
+	r.Error(err)
+	a.Nil(p)
 }

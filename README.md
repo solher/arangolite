@@ -143,6 +143,7 @@ RETURN var
 - `or`: Logical OR operator.
 - `gt`, `gte`: Numerical greater than (>); greater than or equal (>=).
 - `lt`, `lte`: Numerical less than (<); less than or equal (<=).
+- `eq`, `neq`: Equal (==); non equal (!=).
 
 ### Usage
 
