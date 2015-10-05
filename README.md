@@ -158,7 +158,7 @@ func main() {
     panic(err)
   }
 
-	q := arangolite.NewQuery(`
+  q := arangolite.NewQuery(`
     FOR n
     IN nodes
     RETURN n
