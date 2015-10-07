@@ -33,9 +33,3 @@ func (db *DB) Connect(url, database, user, password string) {
 	db.user = user
 	db.password = password
 }
-
-// RunAQL is a simple shortcut allowing to run AQL queries.
-func (db *DB) RunAQL(aql string, params ...interface{}) ([]byte, error) {
-	q := NewQuery(aql, params...)
-	return q.Run(db)
-}

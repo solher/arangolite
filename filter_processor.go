@@ -10,14 +10,11 @@ import (
 	"strings"
 )
 
-var (
-	aqlOp = []string{
-		"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
-		"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
-		"UPSERT",
-	}
-	aqlWriteOp = []string{"REMOVE", "UPDATE", "REPLACE", "INSERT", "UPSERT"}
-)
+var aqlOp = []string{
+	"FOR", "RETURN", "FILTER", "SORT", "LIMIT", "LET", "COLLECT", "INTO",
+	"KEEP", "WITH", "COUNT", "OPTIONS", "REMOVE", "UPDATE", "REPLACE", "INSERT",
+	"UPSERT",
+}
 
 const (
 	inArrayAQL    = " IN "

@@ -5,79 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 )
 
 // Query represents an AQL query.
 type Query struct {
-	aql                   string
-	processTime, execTime time.Duration
+	aql string
 }
 
 // NewQuery returns a new Query object.
 func NewQuery(aql string, params ...interface{}) *Query {
-	start := time.Now()
-
 	aql = fmt.Sprintf(aql, params...)
 	aql = processAQLQuery(aql)
 
-	end := time.Now()
-
-	return &Query{aql: aql, processTime: end.Sub(start)}
-}
-
-// Filter process the Filter object and replace the Query aql field with the
-// filtered version.
-func (q *Query) Filter(filter *Filter) error {
-	if filter == nil || len(q.aql) == 0 {
-		return nil
-	}
-
-	start := time.Now()
-
-	if checkWriteOperation(q.aql) {
-		return errors.New("cannot filter on a writting operation")
-	}
-
-	aqlFilter, err := GetAQLFilter(filter)
-	if err != nil {
-		return err
-	}
-
-	regex, _ := regexp.Compile(`\s(?i)LET\s`)
-	matches := regex.FindStringSubmatchIndex(q.aql)
-
-	if matches == nil {
-		q.aql = fmt.Sprintf("LET result = (%s) %s", q.aql, aqlFilter)
-	} else {
-		lastIndex := matches[len(matches)-1]
-
-		counter := 0
-		searching := false
-		for i, r := range q.aql[lastIndex:] {
-			switch r {
-			case '(':
-				counter++
-				searching = true
-			case ')':
-				counter--
-			}
-
-			if searching && counter == 0 {
-				lastIndex = lastIndex + i + 2
-				break
-			}
-		}
-
-		q.aql = fmt.Sprintf("%sLET result = (%s) %s", q.aql[:lastIndex-1], q.aql[lastIndex:], aqlFilter)
-	}
-
-	end := time.Now()
-	q.processTime = q.processTime + end.Sub(start)
-
-	return nil
+	return &Query{aql: aql}
 }
 
 // Run executes the Query into the database passed as argument.
@@ -88,7 +30,6 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 	start := time.Now()
 	r, err := db.conn.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(q.aql))
 	end := time.Now()
-	q.execTime = end.Sub(start)
 
 	if err != nil {
 		return nil, err
@@ -101,8 +42,8 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 		return nil, err
 	}
 
-	resultLog := fmt.Sprintf("%s RESULT %s | Processing: %v | Execution: %v | Total: %v\n    ",
-		blue, reset, q.processTime, q.execTime, q.processTime+q.execTime)
+	resultLog := fmt.Sprintf("%s RESULT %s | Execution: %v\n    ",
+		blue, reset, end.Sub(start))
 
 	if result.Error {
 		db.logger.Printf("%sERROR: %s", resultLog, result.ErrorMessage)
@@ -132,16 +73,4 @@ func processAQLQuery(query string) string {
 	query = strings.Join(split2, " ")
 
 	return query
-}
-
-func checkWriteOperation(aql string) bool {
-	upperAQL := strings.ToUpper(aql)
-
-	for _, op := range aqlWriteOp {
-		if strings.Contains(upperAQL, op) {
-			return true
-		}
-	}
-
-	return false
 }
