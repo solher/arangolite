@@ -3,6 +3,7 @@ package arangolite
 import (
 	"testing"
 
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,44 +58,25 @@ const (
 func TestFilter(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
-	q := NewQuery(shortQuery)
 
-	err := q.Filter(nil)
-	r.NoError(err)
-	a.Contains(q.aql, "FOR d")
-	a.Contains(q.aql, "FILTER m.documentId == d._id")
-	a.Contains(q.aql, "}")
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 
-	err = q.Filter(&Filter{})
-	r.NoError(err)
-	a.Contains(q.aql, "FOR d")
-	a.Contains(q.aql, "FILTER m.documentId == d._id")
-	a.Contains(q.aql, "}")
-	a.Contains(q.aql, "LET result = (FOR d")
-	a.Contains(q.aql, "FOR var IN result RETURN var")
+	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
+		httpmock.NewStringResponder(200, `{}`))
 
-	err = q.Filter(&Filter{Limit: 2})
-	r.NoError(err)
-	a.Contains(q.aql, "FOR d")
-	a.Contains(q.aql, "FILTER m.documentId == d._id")
-	a.Contains(q.aql, "}")
-	a.Contains(q.aql, "LET result = (FOR d")
-	a.Contains(q.aql, "FOR var IN result LIMIT 2 RETURN var")
+	db := New(false)
+	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
 
-	q = NewQuery(longQuery)
-
-	err = q.Filter(&Filter{})
-	r.NoError(err)
-	a.Contains(q.aql, "LET result = (FOR d")
-	a.Contains(q.aql, "RETURN m")
-	a.Contains(q.aql, "}")
-	a.Contains(q.aql, "FOR var IN result RETURN var")
-
-	err = q.Filter(&Filter{Where: map[string]interface{}{"and": []interface{}{"foo", "bar"}}})
+	result, err := NewQuery(shortQuery).Run(nil)
 	r.Error(err)
+	a.Nil(result)
 
-	q = NewQuery(writeQuery)
+	result, err = NewQuery("").Run(db)
+	r.NoError(err)
+	a.Nil(result)
 
-	err = q.Filter(&Filter{})
-	r.Error(err)
+	result, err = NewQuery(shortQuery).Run(db)
+	r.NoError(err)
+	a.Nil(result)
 }

@@ -1,12 +1,10 @@
 package arangolite
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Query represents an AQL query.
@@ -24,35 +22,21 @@ func NewQuery(aql string, params ...interface{}) *Query {
 
 // Run executes the Query into the database passed as argument.
 func (q *Query) Run(db *DB) ([]byte, error) {
-	q.aql = `{"query": "` + q.aql + `"}`
-	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(q.aql))
-
-	start := time.Now()
-	r, err := db.conn.Post(db.url+"/_db/"+db.database+"/_api/cursor", "application/json", bytes.NewBufferString(q.aql))
-	end := time.Now()
-
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-
-	result := &QueryResult{}
-
-	if err := json.NewDecoder(r.Body).Decode(result); err != nil {
-		return nil, err
+	if db == nil {
+		return nil, errors.New("nil database")
 	}
 
-	resultLog := fmt.Sprintf("%s RESULT %s | Execution: %v\n    ",
-		blue, reset, end.Sub(start))
-
-	if result.Error {
-		db.logger.Printf("%sERROR: %s", resultLog, result.ErrorMessage)
-		return nil, errors.New(result.ErrorMessage)
+	if len(q.aql) == 0 {
+		return nil, nil
 	}
 
-	db.logger.Printf(resultLog + indentJSON(string(result.Content)))
+	type QueryFmt struct {
+		Query string `json:"query"`
+	}
 
-	return result.Content, nil
+	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql})
+
+	return db.runQuery("/_api/cursor", jsonQuery)
 }
 
 func processAQLQuery(query string) string {
