@@ -8,8 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	shortQuery = `
+const shortQuery = `
     FOR d
     IN documents
     RETURN {
@@ -23,39 +22,8 @@ const (
     }
   `
 
-	longQuery = `
-      LET foo = (
-        FOR f IN foo RETURN f._id
-      )
-
-      LET bar = (
-        FOR b IN foo RETURN b._id
-      )
-
-      FOR d
-      IN documents
-      RETURN {
-          document: d,
-          metaData: (
-              FOR m
-              IN metaData
-              FILTER m.documentId == d._id
-              RETURN m
-          ),
-          foo: foo,
-          bar: bar
-      }
-    `
-
-	writeQuery = `
-    FOR d
-    IN documents
-    INSERT d
-    `
-)
-
-// TestFilter runs tests on the Query Filter method.
-func TestFilter(t *testing.T) {
+// TestQueryRun runs tests on the Query Run method.
+func TestQueryRun(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
 
