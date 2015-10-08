@@ -1,4 +1,4 @@
-package arangolite
+package filters
 
 import (
 	"encoding/json"
@@ -20,8 +20,8 @@ type processedFilter struct {
 	Where       string
 }
 
-// GetFilter converts a JSON filter to a Filter object.
-func GetFilter(jsonFilter string) (*Filter, error) {
+// FromJSON converts a JSON filter to a Filter object.
+func FromJSON(jsonFilter string) (*Filter, error) {
 	filter := &Filter{}
 
 	if err := json.Unmarshal([]byte(jsonFilter), filter); err != nil {
@@ -31,18 +31,19 @@ func GetFilter(jsonFilter string) (*Filter, error) {
 	return filter, nil
 }
 
-// GetAQLFilter converts a Filter object to its translation in AQL.
-func GetAQLFilter(f *Filter) (string, error) {
-	fp := newFilterProcessor("var")
+// ToAQL converts a Filter object to its translation in AQL.
+// "tmpVar" is the AQL var name to apply the filter on.
+func ToAQL(tmpVar string, f *Filter) (string, error) {
+	fp := newFilterProcessor(tmpVar)
 	filter, err := fp.Process(f)
 	if err != nil {
 		return "", err
 	}
 
-	aqlFilter := "FOR var IN result"
+	var aqlFilter string
 
 	if len(filter.OffsetLimit) != 0 {
-		aqlFilter = fmt.Sprintf("%s LIMIT %s", aqlFilter, filter.OffsetLimit)
+		aqlFilter = fmt.Sprintf("LIMIT %s", filter.OffsetLimit)
 	}
 
 	if len(filter.Sort) != 0 {
@@ -52,8 +53,6 @@ func GetAQLFilter(f *Filter) (string, error) {
 	if len(filter.Where) != 0 {
 		aqlFilter = fmt.Sprintf("%s FILTER %s", aqlFilter, filter.Where)
 	}
-
-	aqlFilter = aqlFilter + ` RETURN var`
 
 	return aqlFilter, nil
 }

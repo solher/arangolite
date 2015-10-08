@@ -40,22 +40,4 @@ func TestRunQuery(t *testing.T) {
 	result, err = db.runQuery("/path", nil)
 	r.Error(err)
 	a.Nil(result)
-
-	result, err = db.runQuery("/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
-	r.NoError(err)
-	a.Equal(`"[]"`, string(result))
-
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": "[]"`))
-
-	result, err = db.runQuery("/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
-	r.Error(err)
-	a.Nil(result)
-
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
-
-	result, err = db.runQuery("/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
-	r.Error(err)
-	a.Nil(result)
 }

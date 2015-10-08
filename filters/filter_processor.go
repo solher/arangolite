@@ -1,4 +1,4 @@
-package arangolite
+package filters
 
 import (
 	"bytes"
@@ -49,6 +49,10 @@ func newFilterProcessor(varName string) *filterProcessor {
 }
 
 func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
+	if f == nil {
+		return &processedFilter{}, nil
+	}
+
 	if err := fp.checkFilter(f); err != nil {
 		return nil, err
 	}

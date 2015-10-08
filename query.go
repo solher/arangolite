@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Query represents an AQL query.
@@ -30,13 +31,39 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 		return nil, nil
 	}
 
+	jsonQuery := generateQuery(q)
+
+	db.logBegin("QUERY", jsonQuery)
+
+	start := time.Now()
+	r, err := db.runQuery("/_api/cursor", jsonQuery)
+	end := time.Now()
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := &QueryResult{}
+	_ = json.Unmarshal(r, result)
+
+	if result.Error {
+		db.logError(result.ErrorMessage, end.Sub(start))
+		return nil, errors.New(result.ErrorMessage)
+	}
+
+	db.logResult(result.Content, end.Sub(start))
+
+	return result.Content, nil
+}
+
+func generateQuery(q *Query) []byte {
 	type QueryFmt struct {
 		Query string `json:"query"`
 	}
 
 	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql})
 
-	return db.runQuery("/_api/cursor", jsonQuery)
+	return jsonQuery
 }
 
 func processAQLQuery(query string) string {

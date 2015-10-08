@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -44,34 +45,26 @@ func (db *DB) runQuery(path string, query []byte) ([]byte, error) {
 		return nil, errors.New("nil or empty query")
 	}
 
-	db.logger.Printf("%s QUERY %s\n    %s", blue, reset, indentJSON(query))
-
-	start := time.Now()
 	r, err := db.conn.Post(db.url+"/_db/"+db.database+path, "application/json", bytes.NewBuffer(query))
-	end := time.Now()
-
 	if err != nil {
 		return nil, err
 	}
-	defer r.Body.Close()
 
-	result := &QueryResult{}
+	return ioutil.ReadAll(r.Body)
+}
 
-	if err := json.NewDecoder(r.Body).Decode(result); err != nil {
-		return nil, err
-	}
+func (db *DB) logBegin(msg string, jsonQuery []byte) {
+	db.logger.Printf("%s %s %s\n    %s", blue, msg, reset, indentJSON(jsonQuery))
+}
 
-	resultLog := fmt.Sprintf("%s RESULT %s | Execution: %v\n    ",
-		blue, reset, end.Sub(start))
+func (db *DB) logResult(result []byte, execTime time.Duration) {
+	db.logger.Printf("%s RESULT %s | Execution: %v\n    %s",
+		blue, reset, execTime, string(indentJSON([]byte(result))))
+}
 
-	if result.Error {
-		db.logger.Printf("%sERROR: %s", resultLog, result.ErrorMessage)
-		return nil, errors.New(result.ErrorMessage)
-	}
-
-	db.logger.Printf(resultLog + string(indentJSON([]byte(result.Content))))
-
-	return result.Content, nil
+func (db *DB) logError(errMsg string, execTime time.Duration) {
+	db.logger.Printf("%s RESULT %s | Execution: %v\n    ERROR: %s",
+		blue, reset, execTime, errMsg)
 }
 
 var (

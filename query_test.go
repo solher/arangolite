@@ -30,13 +30,17 @@ func TestQueryRun(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
-		httpmock.NewStringResponder(200, `{}`))
-
 	db := New(false)
 	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
 
-	result, err := NewQuery(shortQuery).Run(nil)
+	result, err := NewQuery(shortQuery).Run(db)
+	r.Error(err)
+	a.Nil(result)
+
+	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
+		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": "[]"}`))
+
+	result, err = NewQuery(shortQuery).Run(nil)
 	r.Error(err)
 	a.Nil(result)
 
@@ -46,5 +50,12 @@ func TestQueryRun(t *testing.T) {
 
 	result, err = NewQuery(shortQuery).Run(db)
 	r.NoError(err)
+	a.Equal(`"[]"`, string(result))
+
+	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
+		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
+
+	result, err = NewQuery(shortQuery).Run(db)
+	r.Error(err)
 	a.Nil(result)
 }

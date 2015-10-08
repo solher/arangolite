@@ -21,14 +21,19 @@ func TestTransactionRun(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
+	result, err := NewTransaction([]string{"foo"}, []string{"bar"}).
+		AddQuery("var1", "FOR c IN customer RETURN c").Run(db)
+	r.Error(err)
+	a.Nil(result)
+
 	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/transaction",
 		func(r *http.Request) (*http.Response, error) {
 			buffer, _ := ioutil.ReadAll(r.Body)
 			str := strings.Replace(string(buffer), `"`, `'`, -1)
-			return httpmock.NewStringResponse(200, `{"error": false, "errorMessage": "", "result": "`+str+`"}`), nil
+			return httpmock.NewStringResponse(200, `{"error": false, "errorMessage": "", "result": {"_documents":"`+str+`"}}`), nil
 		})
 
-	result, err := NewTransaction(nil, nil).Run(nil)
+	result, err = NewTransaction(nil, nil).Run(nil)
 	r.Error(err)
 	a.Nil(result)
 
@@ -37,5 +42,13 @@ func TestTransactionRun(t *testing.T) {
 		AddQuery("var2", "FOR c IN {{.var1}} RETURN c").
 		Return("var1").Run(db)
 	r.NoError(err)
-	a.Equal(`"{'collections':{'read':['foo'],'write':['bar']},'action':'function () {var db = require('internal').db; var var1 = db._query('FOR c IN customer RETURN c'); var var2 = db._query('FOR c IN ' + JSON.stringify(var1._documents) + ' RETURN c'); return var1;'}"`, string(result))
+	a.Equal("\"{'collections':{'read':['foo'],'write':['bar']},'action':'function () {var db = require(`internal`).db; var var1 = db._query(`FOR c IN customer RETURN c`); var var2 = db._query(`FOR c IN ` + JSON.stringify(var1._documents) + ` RETURN c`); return var1;}'}\"", string(result))
+
+	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/transaction",
+		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
+
+	result, err = NewTransaction([]string{"foo"}, []string{"bar"}).
+		AddQuery("var1", "FOR c IN customer RETURN c").Run(db)
+	r.Error(err)
+	a.Nil(result)
 }

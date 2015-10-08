@@ -1,4 +1,4 @@
-package arangolite
+package filters
 
 import (
 	"strings"
@@ -25,7 +25,7 @@ var sortFilter = &Filter{
 	Sort: []string{"firstName ASC", "lastName dESc", "age"},
 }
 
-// Integers are converted to float64 because that is what the json unmarshaller do
+// integers are converted to float64 because that is what the json unmarshaller do
 var basicWhereFilter = &Filter{
 	Where: map[string]interface{}{
 		"password":   "qwertyuiop",
@@ -202,4 +202,7 @@ func TestProcessFilter(t *testing.T) {
 	p, err = fp.Process(&Filter{Where: map[string]interface{}{"not": 1}})
 	r.Error(err)
 	a.Nil(p)
+
+	p, err = fp.Process(nil)
+	r.NoError(err)
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Transaction represents an ArangoDB transaction.
@@ -56,6 +57,32 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, errors.New("nil database")
 	}
 
+	jsonTransaction := generateTransaction(t)
+
+	db.logBegin("TRANSACTION", jsonTransaction)
+
+	start := time.Now()
+	r, err := db.runQuery("/_api/transaction", jsonTransaction)
+	end := time.Now()
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := &TransactionResult{}
+	_ = json.Unmarshal(r, result)
+
+	if result.Error {
+		db.logError(result.ErrorMessage, end.Sub(start))
+		return nil, errors.New(result.ErrorMessage)
+	}
+
+	db.logResult(result.Content.TransactionContent, end.Sub(start))
+
+	return result.Content.TransactionContent, nil
+}
+
+func generateTransaction(t *Transaction) []byte {
 	type TransactionFmt struct {
 		Collections struct {
 			Read  []string `json:"read"`
@@ -68,18 +95,18 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
-	jsFunc := `function () {var db = require('internal').db; `
+	jsFunc := "function () {var db = require(`internal`).db; "
 
 	for i, query := range t.queries {
 		query.aql = replaceTemplate(query.aql)
-		jsFunc = fmt.Sprintf(`%svar %s = db._query('%s'); `, jsFunc, t.resultVars[i], query.aql)
+		jsFunc = fmt.Sprintf("%svar %s = db._query(`%s`); ", jsFunc, t.resultVars[i], query.aql)
 	}
 
-	transactionFmt.Action = jsFunc + `return ` + t.returnVar + `;`
+	transactionFmt.Action = jsFunc + "return " + t.returnVar + ";}"
 
-	jsonQuery, _ := json.Marshal(transactionFmt)
+	jsonTransaction, _ := json.Marshal(transactionFmt)
 
-	return db.runQuery("/_api/transaction", jsonQuery)
+	return jsonTransaction
 }
 
 func replaceTemplate(query string) string {
@@ -93,7 +120,7 @@ func replaceTemplate(query string) string {
 	}
 
 	for _, t := range templates {
-		jsResult = `' + JSON.stringify(` + t[3:len(t)-2] + `._documents) + '`
+		jsResult = "` + JSON.stringify(" + t[3:len(t)-2] + "._documents) + `"
 		query = strings.Replace(query, t, jsResult, -1)
 	}
 
