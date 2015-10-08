@@ -4,7 +4,7 @@ Arangolite is a lightweight ArangoDB driver for Go.
 
 It focuses entirely on pure AQL querying. See [AranGO](https://github.com/diegogub/aranGO) for a more ORM-like experience.
 
-Arangolite also features a [LoopBack](http://loopback.io/) heavily inspired filtering system.
+Arangolite also features a [LoopBack](http://loopback.io/) heavily inspired filtering system, in a separated package so you don't need to import it if you don't use it.
 
 ## Installation
 
@@ -32,14 +32,14 @@ func main() {
   db := arangolite.New(true)
   db.Connect("http://localhost:8000", "testDB", "user", "password")
 
-  key := "47473545749"
+  key := "48765564346"
 
-  r, err := db.RunAQL(`
+  r, err := arangolite.NewQuery(`
     FOR n
     IN nodes
     FILTER n._key == %s
     RETURN n
-  `, key)
+  `, key).Run(db)
 
   if err != nil {
     panic(err)
@@ -57,9 +57,9 @@ func main() {
 // OUTPUT:
 // [
 //   {
-//     "_id": "nodes/47473545749",
-//     "_rev": "47473545749",
-//     "_key": "47473545749"
+//     "_id": "nodes/48765564346",
+//     "_rev": "48765564346",
+//     "_key": "48765564346"
 //   }
 // ]
 ```
@@ -79,6 +79,46 @@ type Edge struct {
   Document
   From string `json:"_from,omitempty"`
   To   string `json:"_to,omitempty"`
+}
+```
+
+## Transactions
+
+### Overview
+
+Arangolite provides an abstraction layer to the Javascript ArangoDB transactions.
+
+The only limitation is that no Javascript processing can be manually added inside the transaction. The queries can only be connected in a raw way, using the Go templating conventions.
+
+### Usage
+
+```go
+func main() {
+  db := arangolite.New(true)
+  db.Connect("http://localhost:8000", "testDB", "user", "password")
+
+  r, err := arangolite.NewTransaction([]string{"nodes"}, nil).
+    AddQuery("nodes", `
+    FOR n
+    IN nodes
+    RETURN n
+  `).AddQuery("ids", `
+    FOR n
+    IN {{.nodes}}
+    RETURN n._id
+  `).Return("ids").Run(db)
+
+  if err != nil {
+    panic(err)
+  }
+
+  ids := []string{}
+
+  if err = json.Unmarshal(r, &ids); err != nil {
+    panic(err)
+  }
+
+  fmt.Printf("%v", ids)
 }
 ```
 
@@ -153,22 +193,23 @@ func main() {
   db := arangolite.New(true)
   db.Connect("http://localhost:8000", "testDB", "user", "password")
 
-  filter, err := arangolite.GetFilter(`{"limit": 2}`)
+  filter, err := filters.FromJSON(`{"limit": 2}`)
   if err != nil {
     panic(err)
   }
 
-  q := arangolite.NewQuery(`
-    FOR n
-    IN nodes
-    RETURN n
-  `)
-
-  if err := q.Filter(filter); err != nil {
+  aqlFilter, err := filters.ToAQL("n", filter)
+  if err != nil {
     panic(err)
   }
 
-  r, err := q.Run(db)
+  r, err := arangolite.NewQuery(`
+    FOR n
+    IN nodes
+    %s
+    RETURN n
+  `, aqlFilter).Run(db)
+
   if err != nil {
     panic(err)
   }
@@ -196,10 +237,6 @@ func main() {
 //   }
 // ]
 ```
-
-## Known Issues
-
-Transactions are currently not supported as in ArangoDB, they MUST be written in Javascript.
 
 ## Roadmap
 
