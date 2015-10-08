@@ -83,7 +83,6 @@ type Edge struct {
 ```
 
 ## Transactions
-
 ### Overview
 
 Arangolite provides an abstraction layer to the Javascript ArangoDB transactions.
@@ -122,7 +121,7 @@ func main() {
 }
 ```
 
-## Filter
+## Filters
 ### Overview
 
 In a similar way than in [LoopBack](http://loopback.io/), the filtering system is API client oriented.
