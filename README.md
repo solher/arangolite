@@ -39,7 +39,7 @@ func main() {
     IN nodes
     FILTER n._key == %s
     RETURN n
-  `, key).Run(db)
+  `, key).Cache(true).Run(db) // The caching feature is unavailable prior to ArangoDB 2.7
 
   if err != nil {
     panic(err)

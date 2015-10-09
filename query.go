@@ -10,7 +10,8 @@ import (
 
 // Query represents an AQL query.
 type Query struct {
-	aql string
+	aql   string
+	cache bool
 }
 
 // NewQuery returns a new Query object.
@@ -19,6 +20,13 @@ func NewQuery(aql string, params ...interface{}) *Query {
 	aql = processAQLQuery(aql)
 
 	return &Query{aql: aql}
+}
+
+// Cache enables/disables the caching of the query.
+// Unavailable prior to ArangoDB 2.7
+func (q *Query) Cache(enable bool) *Query {
+	q.cache = enable
+	return q
 }
 
 // Run executes the Query into the database passed as argument.
@@ -59,9 +67,10 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 func generateQuery(q *Query) []byte {
 	type QueryFmt struct {
 		Query string `json:"query"`
+		Cache bool   `json:"cache"`
 	}
 
-	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql})
+	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache})
 
 	return jsonQuery
 }

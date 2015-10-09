@@ -40,7 +40,7 @@ func TestQueryRun(t *testing.T) {
 	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
 		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": "[]"}`))
 
-	result, err = NewQuery(shortQuery).Run(nil)
+	result, err = NewQuery(shortQuery).Cache(true).Run(nil)
 	r.Error(err)
 	a.Nil(result)
 
