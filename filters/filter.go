@@ -7,11 +7,11 @@ import (
 
 // Filter defines a way of filtering AQL queries.
 type Filter struct {
-	Offset  int                    `json:"offset"`
-	Limit   int                    `json:"limit"`
-	Sort    []string               `json:"sort"`
-	Where   map[string]interface{} `json:"where"`
-	Options []string               `json:"options"`
+	Offset  int                      `json:"offset"`
+	Limit   int                      `json:"limit"`
+	Sort    []string                 `json:"sort"`
+	Where   []map[string]interface{} `json:"where"`
+	Options []string                 `json:"options"`
 }
 
 type processedFilter struct {

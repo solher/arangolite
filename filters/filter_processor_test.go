@@ -27,7 +27,7 @@ var sortFilter = &Filter{
 
 // integers are converted to float64 because that is what the json unmarshaller do
 var basicWhereFilter = &Filter{
-	Where: map[string]interface{}{
+	Where: []map[string]interface{}{{
 		"password":   "qwertyuiop",
 		"age":        float64(22),
 		"money":      3000.55,
@@ -37,37 +37,37 @@ var basicWhereFilter = &Filter{
 		"avg":        []interface{}{15.5, 13.24},
 		"birthPlace": []interface{}{"Chalon", "Macon"},
 		"bools":      []interface{}{true, false},
-	},
+	}},
 }
 
 var orWhereFilter = &Filter{
-	Where: map[string]interface{}{
+	Where: []map[string]interface{}{{
 		"oR": []interface{}{
 			map[string]interface{}{"lastName": map[string]interface{}{"eq": "Fabien"}},
 			map[string]interface{}{"age": map[string]interface{}{"gt": float64(23)}},
 			map[string]interface{}{"age": map[string]interface{}{"lt": float64(26)}},
-		},
+		}},
 	},
 }
 
 var andWhereFilter = &Filter{
-	Where: map[string]interface{}{
+	Where: []map[string]interface{}{{
 		"and": []interface{}{
 			map[string]interface{}{"firstName": map[string]interface{}{"neq": "Toto"}},
 			map[string]interface{}{"money": 200.5},
-		},
+		}},
 	},
 }
 
 var notWhereFilter = &Filter{
-	Where: map[string]interface{}{
-		"not": map[string]interface{}{"firstName": "Fabien"},
-		"nOt": map[string]interface{}{
+	Where: []map[string]interface{}{
+		{"not": map[string]interface{}{"firstName": "Fabien"}},
+		{"nOt": map[string]interface{}{
 			"or": []interface{}{
 				map[string]interface{}{"lastName": "Herfray"},
 				map[string]interface{}{"money": map[string]interface{}{"gte": float64(0)}},
 				map[string]interface{}{"money": map[string]interface{}{"lte": 1000.5}}},
-		},
+		}},
 	},
 }
 
@@ -155,51 +155,51 @@ func TestProcessFilter(t *testing.T) {
 		a.Contains(expected, s)
 	}
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"var.firstName": []interface{}{"foo", map[string]interface{}{"foo": "bar"}}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"var.firstName": []interface{}{"foo", map[string]interface{}{"foo": "bar"}}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"foo", "bar"}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"and": []interface{}{"foo", "bar"}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"or": []interface{}{"foo", "bar"}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"or": []interface{}{"foo", "bar"}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": map[string]interface{}{"var.firstName": "Fabien", "foo": "bar"}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"and": map[string]interface{}{"var.firstName": "Fabien", "foo": "bar"}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"and": []interface{}{"INSeRT"}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"and": []interface{}{"INSeRT"}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"eq": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"eq": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"neq": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"neq": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"gt": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"gt": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"gte": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"gte": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"lt": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"lt": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"money": map[string]interface{}{"lte": 1}}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"money": map[string]interface{}{"lte": 1}}}})
 	r.Error(err)
 	a.Nil(p)
 
-	p, err = fp.Process(&Filter{Where: map[string]interface{}{"not": 1}})
+	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"not": 1}}})
 	r.Error(err)
 	a.Nil(p)
 

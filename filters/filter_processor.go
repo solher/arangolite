@@ -108,6 +108,7 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 		}
 
 		pf.Where = buffer.String()
+		pf.Where = pf.Where[1 : len(pf.Where)-1]
 	}
 
 	return pf, nil
@@ -253,7 +254,11 @@ func (fp *filterProcessor) processOperation(buffer *bytes.Buffer, attribute, ope
 		}
 
 	case string:
-		fp.processSimpleOperationStr(buffer, attribute, sign, condition)
+		if condition != "null" {
+			fp.processSimpleOperationStr(buffer, attribute, sign, condition)
+		} else {
+			fp.processSimpleOperation(buffer, attribute, sign, condition)
+		}
 
 	case float64:
 		fp.processSimpleOperation(buffer, attribute, sign, strconv.FormatFloat(condition, 'f', -1, 64))
@@ -336,7 +341,13 @@ func (fp *filterProcessor) writeQuotedString(buffer *bytes.Buffer, str string) {
 }
 
 func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[string]interface{}, error) {
-	if reflect.TypeOf(condition) != reflect.TypeOf([]interface{}{}) {
+	condType := reflect.TypeOf(condition)
+
+	if condType == reflect.TypeOf([]map[string]interface{}{}) {
+		return condition.([]map[string]interface{}), nil
+	}
+
+	if condType != reflect.TypeOf([]interface{}{}) {
 		return nil, fmt.Errorf("invalid condition, must be an array: %v", condition)
 	}
 
