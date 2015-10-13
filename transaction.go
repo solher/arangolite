@@ -99,7 +99,13 @@ func generateTransaction(t *Transaction) []byte {
 
 	for i, query := range t.queries {
 		query.aql = replaceTemplate(query.aql)
-		jsFunc = fmt.Sprintf("%svar %s = db._query(`%s`); ", jsFunc, t.resultVars[i], query.aql)
+		varName := t.resultVars[i]
+
+		if len(varName) == 0 {
+			jsFunc = fmt.Sprintf("%sdb._query(`%s`); ", jsFunc, query.aql)
+		} else {
+			jsFunc = fmt.Sprintf("%svar %s = db._query(`%s`); ", jsFunc, varName, query.aql)
+		}
 	}
 
 	transactionFmt.Action = jsFunc + "return " + t.returnVar + ";}"
