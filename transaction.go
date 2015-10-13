@@ -41,7 +41,11 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Transaction {
 	t.resultVars = append(t.resultVars, resultVar)
 	t.queries = append(t.queries, *NewQuery(aql, params...))
-	t.returnVar = resultVar
+
+	if len(resultVar) != 0 {
+		t.returnVar = resultVar
+	}
+
 	return t
 }
 
