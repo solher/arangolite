@@ -45,7 +45,7 @@ func (db *DB) runQuery(path string, query []byte) ([]byte, error) {
 		return nil, errors.New("nil or empty query")
 	}
 
-	r, err := db.conn.Post(db.url+"/_db/"+db.database+path, "application/json", bytes.NewBuffer(query))
+	r, err := db.conn.Post(getFullURL(db, path), "application/json", bytes.NewBuffer(query))
 	if err != nil {
 		return nil, err
 	}
@@ -53,13 +53,19 @@ func (db *DB) runQuery(path string, query []byte) ([]byte, error) {
 	return ioutil.ReadAll(r.Body)
 }
 
-func (db *DB) logBegin(msg string, jsonQuery []byte) {
-	db.logger.Printf("%s %s %s\n    %s", blue, msg, reset, indentJSON(jsonQuery))
+func (db *DB) logBegin(msg, path string, jsonQuery []byte) {
+
+	db.logger.Printf("%s %s %s | URL: %s\n    %s", blue, msg, reset, getFullURL(db, path), indentJSON(jsonQuery))
 }
 
-func (db *DB) logResult(result []byte, execTime time.Duration) {
-	db.logger.Printf("%s RESULT %s | Execution: %v\n    %s",
-		blue, reset, execTime, string(indentJSON([]byte(result))))
+func (db *DB) logResult(result []byte, cached bool, execTime time.Duration) {
+	if cached {
+		db.logger.Printf("%s RESULT %s | %s CACHED %s | Execution: %v\n    %s",
+			blue, reset, yellow, reset, execTime, string(indentJSON([]byte(result))))
+	} else {
+		db.logger.Printf("%s RESULT %s | Execution: %v\n    %s",
+			blue, reset, execTime, string(indentJSON([]byte(result))))
+	}
 }
 
 func (db *DB) logError(errMsg string, execTime time.Duration) {
@@ -83,4 +89,13 @@ func indentJSON(in []byte) []byte {
 	_ = json.Indent(b, in, "    ", "  ")
 
 	return b.Bytes()
+}
+
+func getFullURL(db *DB, path string) string {
+	url := bytes.NewBufferString(db.url)
+	url.WriteString("/_db/")
+	url.WriteString(db.database)
+	url.WriteString(path)
+
+	return url.String()
 }

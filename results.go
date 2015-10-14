@@ -12,6 +12,7 @@ type errorResult struct {
 type QueryResult struct {
 	errorResult
 	Content json.RawMessage `json:"result"`
+	Cached  bool            `json:"cached"`
 }
 
 // TransactionResult represents the ArangoDB results returned by the REST API when an

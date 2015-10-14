@@ -63,7 +63,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 
 	jsonTransaction := generateTransaction(t)
 
-	db.logBegin("TRANSACTION", jsonTransaction)
+	db.logBegin("TRANSACTION", "/_api/transaction", jsonTransaction)
 
 	start := time.Now()
 	r, err := db.runQuery("/_api/transaction", jsonTransaction)
@@ -81,7 +81,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	db.logResult(result.Content.TransactionContent, end.Sub(start))
+	db.logResult(result.Content.TransactionContent, false, end.Sub(start))
 
 	return result.Content.TransactionContent, nil
 }

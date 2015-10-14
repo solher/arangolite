@@ -41,7 +41,7 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 
 	jsonQuery := generateQuery(q)
 
-	db.logBegin("QUERY", jsonQuery)
+	db.logBegin("QUERY", "/_api/cursor", jsonQuery)
 
 	start := time.Now()
 	r, err := db.runQuery("/_api/cursor", jsonQuery)
@@ -59,7 +59,7 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	db.logResult(result.Content, end.Sub(start))
+	db.logResult(result.Content, result.Cached, end.Sub(start))
 
 	return result.Content, nil
 }
