@@ -133,11 +133,11 @@ Its goal is to provide an easy way of converting JSON filters passed through que
 ```go
 // Filter defines a way of filtering AQL queries.
 type Filter struct {
-  Offset  int                    `json:"offset"`
-  Limit   int                    `json:"limit"`
-  Sort    []string               `json:"sort"`
+  Offset  int                      `json:"offset"`
+  Limit   int                      `json:"limit"`
+  Sort    []string                 `json:"sort"`
   Where   []map[string]interface{} `json:"where"`
-  Options []string               `json:"options"`
+  Options []string                 `json:"options"`
 }
 ```
 
@@ -243,6 +243,7 @@ func main() {
 ## Roadmap
 
 - Add database and collection management.
+- Reduce filter processing overhead.
 
 ## License
 
