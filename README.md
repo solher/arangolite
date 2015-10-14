@@ -68,17 +68,19 @@ func main() {
 
 ```go
 // Document represents a basic ArangoDB document
+// Fields are pointers to allow null values in ArangoDB
 type Document struct {
-  ID  string `json:"_id,omitempty"`
-  Rev string `json:"_rev,omitempty"`
-  Key string `json:"_key,omitempty"`
+  ID  *string `json:"_id,omitempty"`
+  Rev *string `json:"_rev,omitempty"`
+  Key *string `json:"_key,omitempty"`
 }
 
 // Edge represents a basic ArangoDB edge
+// Fields are pointers to allow null values in ArangoDB
 type Edge struct {
   Document
-  From string `json:"_from,omitempty"`
-  To   string `json:"_to,omitempty"`
+  From *string `json:"_from,omitempty"`
+  To   *string `json:"_to,omitempty"`
 }
 ```
 
@@ -134,7 +136,7 @@ type Filter struct {
   Offset  int                    `json:"offset"`
   Limit   int                    `json:"limit"`
   Sort    []string               `json:"sort"`
-  Where   map[string]interface{} `json:"where"`
+  Where   []map[string]interface{} `json:"where"`
   Options []string               `json:"options"`
 }
 ```
@@ -156,12 +158,15 @@ JSON:
   "offset": 1,
   "limit": 2,
   "sort": ["age desc", "money"],
-  "where": {
-    "firstName": "Pierre",
-    "or": [
-      {"birthPlace": ["Paris", "Los Angeles"]},
-      {"age": {"gte": 18}}
-    ]
+  "where": [
+    {"firstName": "Pierre"},
+    {
+      "or": [
+        {"birthPlace": ["Paris", "Los Angeles"]},
+        {"age": {"gte": 18}}
+      ]
+    }
+  ]
   },
   "options": ["details"]
 }
@@ -169,11 +174,9 @@ JSON:
 
 AQL:
 ```
-FOR var IN result
 LIMIT 1, 2
 SORT var.age DESC, var.money ASC
 FILTER var.firstName == 'Pierre' && (var.birthPlace IN ['Paris', 'Los Angeles'] || var.age >= 18)
-RETURN var
 ```
 
 ### Operators
