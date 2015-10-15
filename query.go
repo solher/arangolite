@@ -20,7 +20,7 @@ func NewQuery(aql string, params ...interface{}) *Query {
 	aql = fmt.Sprintf(aql, params...)
 	aql = processAQLQuery(aql)
 
-	return &Query{aql: aql, batchSize: 1000}
+	return &Query{aql: aql}
 }
 
 // Cache enables/disables the caching of the query.
@@ -61,13 +61,13 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 	return a, nil
 }
 
-func (q *Query) RunAsync(db *DB) (*AsyncResult, error) {
+func (q *Query) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")
 	}
 
 	if len(q.aql) == 0 {
-		return &AsyncResult{hasNext: false}, nil
+		return &Result{hasNext: false}, nil
 	}
 
 	c, err := db.runQuery("/_api/cursor", q)
@@ -76,7 +76,7 @@ func (q *Query) RunAsync(db *DB) (*AsyncResult, error) {
 		return nil, err
 	}
 
-	return &AsyncResult{c: c, hasNext: true}, nil
+	return &Result{c: c, hasNext: true}, nil
 }
 
 func (q *Query) generate() []byte {

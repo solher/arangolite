@@ -5,10 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -16,18 +13,12 @@ import (
 type DB struct {
 	url, database, user, password string
 	conn                          *http.Client
-	logger                        *log.Logger
+	l                             *logger
 }
 
 // New returns a new DB object.
 func New(logEnabled bool) *DB {
-	var out *os.File
-
-	if logEnabled {
-		out = os.Stdout
-	}
-
-	return &DB{conn: &http.Client{}, logger: log.New(out, fmt.Sprintf("\n[Arangolite] "), 0)}
+	return &DB{conn: &http.Client{}, l: newLogger(logEnabled)}
 }
 
 // Connect initialize a DB object with the database url and credentials.
@@ -54,32 +45,32 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 	fullURL := getFullURL(db, path)
 	jsonQuery := query.generate()
 
-	db.logBegin(query.description(), fullURL, jsonQuery)
+	db.l.logBegin(query.description(), fullURL, jsonQuery)
 	start := time.Now()
 
 	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(jsonQuery))
 	if err != nil {
-		db.logError(err.Error(), time.Now().Sub(start))
+		db.l.logError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
 	r, err := db.conn.Do(req)
 	if err != nil {
-		db.logError(err.Error(), time.Now().Sub(start))
+		db.l.logError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
-	result := &Result{}
+	result := &result{}
 
 	_ = json.NewDecoder(r.Body).Decode(result)
 	r.Body.Close()
 
 	if result.Error {
-		db.logError(result.ErrorMessage, time.Now().Sub(start))
+		db.l.logError(result.ErrorMessage, time.Now().Sub(start))
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	go db.logResult(result, start, in, out)
+	go db.l.logResult(result, start, in, out)
 
 	in <- result.Content
 
@@ -105,7 +96,7 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 		return
 	}
 
-	result := &Result{}
+	result := &result{}
 
 	_ = json.NewDecoder(r.Body).Decode(result)
 	r.Body.Close()
@@ -122,64 +113,6 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	} else {
 		c <- nil
 	}
-}
-
-func (db *DB) logBegin(msg, url string, jsonQuery []byte) {
-	db.logger.Printf("%s %s %s | URL: %s\n    %s", blue, msg, reset, url, indentJSON(jsonQuery))
-}
-
-func (db *DB) logResult(result *Result, start time.Time, in, out chan interface{}) {
-	batchNb := 0
-
-	for {
-		tmp := <-in
-		out <- tmp
-
-		switch tmp.(type) {
-		case json.RawMessage:
-			batchNb++
-			continue
-		}
-
-		break
-	}
-
-	execTime := time.Now().Sub(start)
-	content := string(indentJSON([]byte(result.Content)))
-	if len(content) > 5000 {
-		content = content[0:5000] + "\n\n    Result has been truncated to 5000 characters"
-	}
-
-	if result.Cached {
-		db.logger.Printf("%s RESULT %s | %s CACHED %s | Execution: %v | Batches: %d\n    %s",
-			blue, reset, yellow, reset, execTime, batchNb, content)
-	} else {
-		db.logger.Printf("%s RESULT %s | Execution: %v | Batches: %d\n    %s",
-			blue, reset, execTime, batchNb, content)
-	}
-}
-
-func (db *DB) logError(errMsg string, execTime time.Duration) {
-	db.logger.Printf("%s RESULT %s | Execution: %v\n    ERROR: %s",
-		blue, reset, execTime, errMsg)
-}
-
-var (
-	green   = string([]byte{27, 91, 57, 55, 59, 52, 50, 109})
-	white   = string([]byte{27, 91, 57, 48, 59, 52, 55, 109})
-	yellow  = string([]byte{27, 91, 57, 55, 59, 52, 51, 109})
-	red     = string([]byte{27, 91, 57, 55, 59, 52, 49, 109})
-	blue    = string([]byte{27, 91, 57, 55, 59, 52, 52, 109})
-	magenta = string([]byte{27, 91, 57, 55, 59, 52, 53, 109})
-	cyan    = string([]byte{27, 91, 57, 55, 59, 52, 54, 109})
-	reset   = string([]byte{27, 91, 48, 109})
-)
-
-func indentJSON(in []byte) []byte {
-	b := &bytes.Buffer{}
-	_ = json.Indent(b, in, "    ", "  ")
-
-	return b.Bytes()
 }
 
 func getFullURL(db *DB, path string) string {

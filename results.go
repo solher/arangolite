@@ -2,7 +2,7 @@ package arangolite
 
 import "encoding/json"
 
-type Result struct {
+type result struct {
 	Error        bool            `json:"error"`
 	ErrorMessage string          `json:"errorMessage"`
 	Content      json.RawMessage `json:"result"`
@@ -11,33 +11,25 @@ type Result struct {
 	ID           string          `json:"id"`
 }
 
-// QueryResult represents the ArangoDB results returned by the REST API when an
-// AQL query is executed.
-type QueryResult struct {
-	Result
-	Content json.RawMessage `json:"result"`
-	Cached  bool            `json:"cached"`
-}
-
 // TransactionResult represents the ArangoDB results returned by the REST API when an
 // ArangoDB transaction is executed.
 type TransactionResult struct {
-	Result
+	result
 	Content struct {
 		TransactionContent json.RawMessage `json:"_documents"`
 	} `json:"result"`
 }
 
-type AsyncResult struct {
+type Result struct {
 	c       chan interface{}
 	hasNext bool
 }
 
-func (r *AsyncResult) HasNext() bool {
+func (r *Result) HasNext() bool {
 	return r.hasNext
 }
 
-func (ar *AsyncResult) Next() []byte {
+func (ar *Result) Next() []byte {
 	switch r := <-ar.c; r.(type) {
 	case json.RawMessage:
 		return r.(json.RawMessage)

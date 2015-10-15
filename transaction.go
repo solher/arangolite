@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 )
 
 // Transaction represents an ArangoDB transaction.
@@ -63,9 +62,9 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 
 	// db.logBegin("TRANSACTION", "/_api/transaction", jsonTransaction)
 
-	start := time.Now()
+	// start := time.Now()
 	_, err := db.runQuery("/_api/transaction", t)
-	end := time.Now()
+	// end := time.Now()
 
 	if err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 	_ = json.Unmarshal(r, result)
 
 	if result.Error {
-		db.logError(result.ErrorMessage, end.Sub(start))
+		// db.logError(result.ErrorMessage, end.Sub(start))
 		return nil, errors.New(result.ErrorMessage)
 	}
 
