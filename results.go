@@ -7,7 +7,6 @@ type Result struct {
 	ErrorMessage string          `json:"errorMessage"`
 	Content      json.RawMessage `json:"result"`
 	Cached       bool            `json:"cached"`
-	Count        int             `json:"count"`
 	HasMore      bool            `json:"hasMore"`
 	ID           string          `json:"id"`
 }
@@ -32,10 +31,6 @@ type TransactionResult struct {
 type AsyncResult struct {
 	c       chan interface{}
 	hasNext bool
-}
-
-func NewAsyncResult(c chan interface{}) *AsyncResult {
-	return &AsyncResult{c: c, hasNext: true}
 }
 
 func (r *AsyncResult) HasNext() bool {

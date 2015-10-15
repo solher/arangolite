@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Query represents an AQL query.
@@ -35,6 +36,8 @@ func (q *Query) BatchSize(size int) *Query {
 }
 
 func (q *Query) Run(db *DB) ([]byte, error) {
+	start := time.Now()
+
 	async, err := q.RunAsync(db)
 
 	if err != nil {
@@ -52,7 +55,10 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 		allElem = append(allElem, batchElem...)
 	}
 
-	return json.Marshal(allElem)
+	a, _ := json.Marshal(allElem)
+	fmt.Printf("%v", time.Now().Sub(start))
+
+	return a, nil
 }
 
 func (q *Query) RunAsync(db *DB) (*AsyncResult, error) {
@@ -64,17 +70,11 @@ func (q *Query) RunAsync(db *DB) (*AsyncResult, error) {
 		return &AsyncResult{hasNext: false}, nil
 	}
 
-	// db.logBegin("QUERY", "/_api/cursor", jsonQuery)
-
-	// start := time.Now()
 	c, err := db.runQuery("/_api/cursor", q)
-	// end := time.Now()
 
 	if err != nil {
 		return nil, err
 	}
-
-	// db.logResult(result.Content, result.Cached, end.Sub(start))
 
 	return &AsyncResult{c: c, hasNext: true}, nil
 }
@@ -83,13 +83,16 @@ func (q *Query) generate() []byte {
 	type QueryFmt struct {
 		Query     string `json:"query"`
 		Cache     bool   `json:"cache"`
-		Count     bool   `json:"count"`
 		BatchSize int    `json:"batchSize,omitempty"`
 	}
 
-	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache, Count: true, BatchSize: q.batchSize})
+	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache, BatchSize: q.batchSize})
 
 	return jsonQuery
+}
+
+func (q *Query) description() string {
+	return "QUERY"
 }
 
 func processAQLQuery(query string) string {

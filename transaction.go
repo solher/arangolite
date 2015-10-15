@@ -81,7 +81,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	db.logResult(result.Content.TransactionContent, false, end.Sub(start))
+	// db.logResult(result.Content.TransactionContent, false, end.Sub(start))
 
 	return result.Content.TransactionContent, nil
 }
@@ -119,8 +119,8 @@ func (t *Transaction) generate() []byte {
 	return jsonTransaction
 }
 
-func (t *Transaction) getBatchSize() int {
-	return 1000
+func (t *Transaction) description() string {
+	return "TRANSACTION"
 }
 
 func replaceTemplate(query string) string {

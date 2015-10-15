@@ -39,6 +39,7 @@ func (db *DB) Connect(url, database, user, password string) {
 }
 
 type RunnableQuery interface {
+	description() string
 	generate() []byte
 }
 
@@ -48,16 +49,23 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 		return nil, errors.New("nil or empty query")
 	}
 
-	c := make(chan interface{}, 16)
+	in := make(chan interface{}, 16)
+	out := make(chan interface{}, 16)
 	fullURL := getFullURL(db, path)
+	jsonQuery := query.generate()
 
-	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(query.generate()))
+	db.logBegin(query.description(), fullURL, jsonQuery)
+	start := time.Now()
+
+	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(jsonQuery))
 	if err != nil {
+		db.logError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
 	r, err := db.conn.Do(req)
 	if err != nil {
+		db.logError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
@@ -67,18 +75,21 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 	r.Body.Close()
 
 	if result.Error {
+		db.logError(result.ErrorMessage, time.Now().Sub(start))
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	c <- result.Content
+	go db.logResult(result, start, in, out)
+
+	in <- result.Content
 
 	if result.HasMore {
-		go db.followCursor(fullURL+"/"+result.ID, c)
+		go db.followCursor(fullURL+"/"+result.ID, in)
 	} else {
-		c <- nil
+		in <- nil
 	}
 
-	return c, nil
+	return out, nil
 }
 
 func (db *DB) followCursor(url string, c chan interface{}) {
@@ -113,18 +124,38 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	}
 }
 
-func (db *DB) logBegin(msg, path string, jsonQuery []byte) {
-
-	db.logger.Printf("%s %s %s | URL: %s\n    %s", blue, msg, reset, getFullURL(db, path), indentJSON(jsonQuery))
+func (db *DB) logBegin(msg, url string, jsonQuery []byte) {
+	db.logger.Printf("%s %s %s | URL: %s\n    %s", blue, msg, reset, url, indentJSON(jsonQuery))
 }
 
-func (db *DB) logResult(result []byte, cached bool, execTime time.Duration) {
-	if cached {
-		db.logger.Printf("%s RESULT %s | %s CACHED %s | Execution: %v\n    %s",
-			blue, reset, yellow, reset, execTime, string(indentJSON([]byte(result))))
+func (db *DB) logResult(result *Result, start time.Time, in, out chan interface{}) {
+	batchNb := 0
+
+	for {
+		tmp := <-in
+		out <- tmp
+
+		switch tmp.(type) {
+		case json.RawMessage:
+			batchNb++
+			continue
+		}
+
+		break
+	}
+
+	execTime := time.Now().Sub(start)
+	content := string(indentJSON([]byte(result.Content)))
+	if len(content) > 5000 {
+		content = content[0:5000] + "\n\n    Result has been truncated to 5000 characters"
+	}
+
+	if result.Cached {
+		db.logger.Printf("%s RESULT %s | %s CACHED %s | Execution: %v | Batches: %d\n    %s",
+			blue, reset, yellow, reset, execTime, batchNb, content)
 	} else {
-		db.logger.Printf("%s RESULT %s | Execution: %v\n    %s",
-			blue, reset, execTime, string(indentJSON([]byte(result))))
+		db.logger.Printf("%s RESULT %s | Execution: %v | Batches: %d\n    %s",
+			blue, reset, execTime, batchNb, content)
 	}
 }
 
