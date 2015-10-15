@@ -61,17 +61,17 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, errors.New("nil database")
 	}
 
-	jsonTransaction := generateTransaction(t)
-
-	db.logBegin("TRANSACTION", "/_api/transaction", jsonTransaction)
+	// db.logBegin("TRANSACTION", "/_api/transaction", jsonTransaction)
 
 	start := time.Now()
-	r, err := db.runQuery("/_api/transaction", jsonTransaction)
+	_, err := db.runQuery("/_api/transaction", t)
 	end := time.Now()
 
 	if err != nil {
 		return nil, err
 	}
+
+	r := []byte{}
 
 	result := &TransactionResult{}
 	_ = json.Unmarshal(r, result)
@@ -86,7 +86,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 	return result.Content.TransactionContent, nil
 }
 
-func generateTransaction(t *Transaction) []byte {
+func (t *Transaction) generate() []byte {
 	type TransactionFmt struct {
 		Collections struct {
 			Read  []string `json:"read"`
@@ -117,6 +117,10 @@ func generateTransaction(t *Transaction) []byte {
 	jsonTransaction, _ := json.Marshal(transactionFmt)
 
 	return jsonTransaction
+}
+
+func (t *Transaction) getBatchSize() int {
+	return 1000
 }
 
 func replaceTemplate(query string) string {

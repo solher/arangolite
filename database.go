@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -39,18 +38,79 @@ func (db *DB) Connect(url, database, user, password string) {
 	db.password = password
 }
 
+type RunnableQuery interface {
+	generate() []byte
+}
+
 // runQuery executes a query at the path passed as argument.
-func (db *DB) runQuery(path string, query []byte) ([]byte, error) {
-	if query == nil || len(query) == 0 {
+func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, error) {
+	if query == nil {
 		return nil, errors.New("nil or empty query")
 	}
 
-	r, err := db.conn.Post(getFullURL(db, path), "application/json", bytes.NewBuffer(query))
+	c := make(chan interface{}, 16)
+	fullURL := getFullURL(db, path)
+
+	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(query.generate()))
 	if err != nil {
 		return nil, err
 	}
 
-	return ioutil.ReadAll(r.Body)
+	r, err := db.conn.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &Result{}
+
+	_ = json.NewDecoder(r.Body).Decode(result)
+	r.Body.Close()
+
+	if result.Error {
+		return nil, errors.New(result.ErrorMessage)
+	}
+
+	c <- result.Content
+
+	if result.HasMore {
+		go db.followCursor(fullURL+"/"+result.ID, c)
+	} else {
+		c <- nil
+	}
+
+	return c, nil
+}
+
+func (db *DB) followCursor(url string, c chan interface{}) {
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
+	if err != nil {
+		c <- err
+		return
+	}
+
+	r, err := db.conn.Do(req)
+	if err != nil {
+		c <- err
+		return
+	}
+
+	result := &Result{}
+
+	_ = json.NewDecoder(r.Body).Decode(result)
+	r.Body.Close()
+
+	if result.Error {
+		c <- errors.New(result.ErrorMessage)
+		return
+	}
+
+	c <- result.Content
+
+	if result.HasMore {
+		go db.followCursor(url, c)
+	} else {
+		c <- nil
+	}
 }
 
 func (db *DB) logBegin(msg, path string, jsonQuery []byte) {
@@ -96,6 +156,5 @@ func getFullURL(db *DB, path string) string {
 	url.WriteString("/_db/")
 	url.WriteString(db.database)
 	url.WriteString(path)
-
 	return url.String()
 }

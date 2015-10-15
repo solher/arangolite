@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Query represents an AQL query.
 type Query struct {
-	aql   string
-	cache bool
+	aql       string
+	cache     bool
+	batchSize int
 }
 
 // NewQuery returns a new Query object.
@@ -19,7 +19,7 @@ func NewQuery(aql string, params ...interface{}) *Query {
 	aql = fmt.Sprintf(aql, params...)
 	aql = processAQLQuery(aql)
 
-	return &Query{aql: aql}
+	return &Query{aql: aql, batchSize: 1000}
 }
 
 // Cache enables/disables the caching of the query.
@@ -29,48 +29,65 @@ func (q *Query) Cache(enable bool) *Query {
 	return q
 }
 
-// Run executes the Query into the database passed as argument.
+func (q *Query) BatchSize(size int) *Query {
+	q.batchSize = size
+	return q
+}
+
 func (q *Query) Run(db *DB) ([]byte, error) {
-	if db == nil {
-		return nil, errors.New("nil database")
-	}
-
-	if len(q.aql) == 0 {
-		return nil, nil
-	}
-
-	jsonQuery := generateQuery(q)
-
-	db.logBegin("QUERY", "/_api/cursor", jsonQuery)
-
-	start := time.Now()
-	r, err := db.runQuery("/_api/cursor", jsonQuery)
-	end := time.Now()
+	async, err := q.RunAsync(db)
 
 	if err != nil {
 		return nil, err
 	}
 
-	result := &QueryResult{}
-	_ = json.Unmarshal(r, result)
+	allElem := []interface{}{}
 
-	if result.Error {
-		db.logError(result.ErrorMessage, end.Sub(start))
-		return nil, errors.New(result.ErrorMessage)
+	for async.HasNext() {
+		r := async.Next()
+
+		batchElem := []interface{}{}
+		_ = json.Unmarshal(r, &batchElem)
+
+		allElem = append(allElem, batchElem...)
 	}
 
-	db.logResult(result.Content, result.Cached, end.Sub(start))
-
-	return result.Content, nil
+	return json.Marshal(allElem)
 }
 
-func generateQuery(q *Query) []byte {
-	type QueryFmt struct {
-		Query string `json:"query"`
-		Cache bool   `json:"cache"`
+func (q *Query) RunAsync(db *DB) (*AsyncResult, error) {
+	if db == nil {
+		return nil, errors.New("nil database")
 	}
 
-	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache})
+	if len(q.aql) == 0 {
+		return &AsyncResult{hasNext: false}, nil
+	}
+
+	// db.logBegin("QUERY", "/_api/cursor", jsonQuery)
+
+	// start := time.Now()
+	c, err := db.runQuery("/_api/cursor", q)
+	// end := time.Now()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// db.logResult(result.Content, result.Cached, end.Sub(start))
+
+	return &AsyncResult{c: c, hasNext: true}, nil
+}
+
+func (q *Query) generate() []byte {
+	type QueryFmt struct {
+		Query     string `json:"query"`
+		Cache     bool   `json:"cache"`
+		Count     bool   `json:"count"`
+		BatchSize int    `json:"batchSize,omitempty"`
+	}
+
+	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache, Count: true, BatchSize: q.batchSize})
 
 	return jsonQuery
 }
