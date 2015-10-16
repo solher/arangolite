@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
-	"time"
 )
 
 // Query represents an AQL query.
@@ -30,35 +30,19 @@ func (q *Query) Cache(enable bool) *Query {
 	return q
 }
 
+// BatchSize sets the batch size of the query
 func (q *Query) BatchSize(size int) *Query {
 	q.batchSize = size
 	return q
 }
 
 func (q *Query) Run(db *DB) ([]byte, error) {
-	start := time.Now()
-
 	async, err := q.RunAsync(db)
-
 	if err != nil {
 		return nil, err
 	}
 
-	allElem := []interface{}{}
-
-	for async.HasNext() {
-		r := async.Next()
-
-		batchElem := []interface{}{}
-		_ = json.Unmarshal(r, &batchElem)
-
-		allElem = append(allElem, batchElem...)
-	}
-
-	a, _ := json.Marshal(allElem)
-	fmt.Printf("%v", time.Now().Sub(start))
-
-	return a, nil
+	return db.syncResult(async)
 }
 
 func (q *Query) RunAsync(db *DB) (*Result, error) {
@@ -93,6 +77,11 @@ func (q *Query) generate() []byte {
 
 func (q *Query) description() string {
 	return "QUERY"
+}
+
+func (q *Query) decode(body io.ReadCloser, r *result) {
+	json.NewDecoder(body).Decode(r)
+	body.Close()
 }
 
 func processAQLQuery(query string) string {

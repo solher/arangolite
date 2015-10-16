@@ -33,17 +33,8 @@ func (ar *Result) Next() []byte {
 	switch r := <-ar.c; r.(type) {
 	case json.RawMessage:
 		return r.(json.RawMessage)
-
-	case error:
-		ar.hasNext = false
-		return nil
-
-	default:
-		if r == nil {
-			ar.hasNext = false
-			return nil
-		}
 	}
 
+	ar.hasNext = false
 	return nil
 }

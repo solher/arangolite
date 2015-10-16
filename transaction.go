@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -14,6 +15,7 @@ type Transaction struct {
 	resultVars        []string
 	queries           []Query
 	returnVar         string
+	batchSize         int
 }
 
 // NewTransaction returns a new Transaction object.
@@ -54,35 +56,34 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 	return t
 }
 
-// Run executes the Transaction into the database passed as argument.
+// BatchSize sets the batch size of the transaction
+func (t *Transaction) BatchSize(size int) *Transaction {
+	t.batchSize = size
+	return t
+}
+
 func (t *Transaction) Run(db *DB) ([]byte, error) {
+	async, err := t.RunAsync(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.syncResult(async)
+}
+
+// Run executes the Transaction into the database passed as argument.
+func (t *Transaction) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")
 	}
 
-	// db.logBegin("TRANSACTION", "/_api/transaction", jsonTransaction)
-
-	// start := time.Now()
-	_, err := db.runQuery("/_api/transaction", t)
-	// end := time.Now()
+	c, err := db.runQuery("/_api/transaction", t)
 
 	if err != nil {
 		return nil, err
 	}
 
-	r := []byte{}
-
-	result := &TransactionResult{}
-	_ = json.Unmarshal(r, result)
-
-	if result.Error {
-		// db.logError(result.ErrorMessage, end.Sub(start))
-		return nil, errors.New(result.ErrorMessage)
-	}
-
-	// db.logResult(result.Content.TransactionContent, false, end.Sub(start))
-
-	return result.Content.TransactionContent, nil
+	return &Result{c: c, hasNext: true}, nil
 }
 
 func (t *Transaction) generate() []byte {
@@ -91,10 +92,11 @@ func (t *Transaction) generate() []byte {
 			Read  []string `json:"read"`
 			Write []string `json:"write"`
 		} `json:"collections"`
-		Action string `json:"action"`
+		Action    string `json:"action"`
+		BatchSize int    `json:"batchSize,omitempty"`
 	}
 
-	transactionFmt := &TransactionFmt{}
+	transactionFmt := &TransactionFmt{BatchSize: t.batchSize}
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
@@ -120,6 +122,19 @@ func (t *Transaction) generate() []byte {
 
 func (t *Transaction) description() string {
 	return "TRANSACTION"
+}
+
+func (t *Transaction) decode(body io.ReadCloser, r *result) {
+	json.NewDecoder(body).Decode(r)
+	body.Close()
+
+	content := &struct {
+		Documents json.RawMessage `json:"_documents"`
+	}{}
+
+	json.Unmarshal(r.Content, content)
+
+	r.Content = content.Documents
 }
 
 func replaceTemplate(query string) string {

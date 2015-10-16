@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 )
@@ -17,21 +18,29 @@ type DB struct {
 }
 
 // New returns a new DB object.
-func New(logEnabled bool) *DB {
-	return &DB{conn: &http.Client{}, l: newLogger(logEnabled)}
+func New() *DB {
+	return &DB{conn: &http.Client{}, l: newLogger()}
+}
+
+func (db *DB) LoggerOptions(enabled, printQuery, printResult bool) *DB {
+	db.l.Enabled(enabled).PrintQuery(printQuery).PrintResult(printResult)
+	return db
 }
 
 // Connect initialize a DB object with the database url and credentials.
-func (db *DB) Connect(url, database, user, password string) {
+func (db *DB) Connect(url, database, user, password string) *DB {
 	db.url = url
 	db.database = database
 	db.user = user
 	db.password = password
+
+	return db
 }
 
 type RunnableQuery interface {
 	description() string
 	generate() []byte
+	decode(io.ReadCloser, *result)
 }
 
 // runQuery executes a query at the path passed as argument.
@@ -45,32 +54,30 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 	fullURL := getFullURL(db, path)
 	jsonQuery := query.generate()
 
-	db.l.logBegin(query.description(), fullURL, jsonQuery)
+	db.l.LogBegin(query.description(), fullURL, jsonQuery)
 	start := time.Now()
 
 	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(jsonQuery))
 	if err != nil {
-		db.l.logError(err.Error(), time.Now().Sub(start))
+		db.l.LogError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
 	r, err := db.conn.Do(req)
 	if err != nil {
-		db.l.logError(err.Error(), time.Now().Sub(start))
+		db.l.LogError(err.Error(), time.Now().Sub(start))
 		return nil, err
 	}
 
 	result := &result{}
-
-	_ = json.NewDecoder(r.Body).Decode(result)
-	r.Body.Close()
+	query.decode(r.Body, result)
 
 	if result.Error {
-		db.l.logError(result.ErrorMessage, time.Now().Sub(start))
+		db.l.LogError(result.ErrorMessage, time.Now().Sub(start))
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	go db.l.logResult(result, start, in, out)
+	go db.l.LogResult(result, start, in, out)
 
 	in <- result.Content
 
@@ -113,6 +120,25 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	} else {
 		c <- nil
 	}
+}
+
+func (db *DB) syncResult(async *Result) ([]byte, error) {
+	result := []byte{'['}
+
+	for async.HasNext() {
+		r := async.Next()
+
+		if len(r) == 0 {
+			continue
+		}
+
+		result = append(result, r[1:len(r)-1]...)
+		result = append(result, ',')
+	}
+
+	result = append(result[:len(result)-1], ']')
+
+	return result, nil
 }
 
 func getFullURL(db *DB, path string) string {
