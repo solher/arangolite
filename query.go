@@ -36,6 +36,8 @@ func (q *Query) BatchSize(size int) *Query {
 	return q
 }
 
+// Run runs the query synchronously and returns the JSON array of all elements
+// of every batch returned by the database.
 func (q *Query) Run(db *DB) ([]byte, error) {
 	async, err := q.RunAsync(db)
 	if err != nil {
@@ -45,6 +47,7 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 	return db.syncResult(async)
 }
 
+// RunAsync runs the query asynchronously and returns an async Result object.
 func (q *Query) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")

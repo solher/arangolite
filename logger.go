@@ -23,7 +23,7 @@ func newLogger() *logger {
 	return l
 }
 
-func (l *logger) Enabled(enabled bool) *logger {
+func (l *logger) Options(enabled, printQuery, printResult bool) *logger {
 	var out *os.File
 
 	if enabled {
@@ -32,16 +32,9 @@ func (l *logger) Enabled(enabled bool) *logger {
 
 	l.Logger = *log.New(out, "", 0)
 
-	return l
-}
+	l.printQuery = printQuery
+	l.printResult = printResult
 
-func (l *logger) PrintQuery(enabled bool) *logger {
-	l.printQuery = enabled
-	return l
-}
-
-func (l *logger) PrintResult(enabled bool) *logger {
-	l.printResult = enabled
 	return l
 }
 

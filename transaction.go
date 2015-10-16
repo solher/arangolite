@@ -62,6 +62,8 @@ func (t *Transaction) BatchSize(size int) *Transaction {
 	return t
 }
 
+// Run runs the transaction synchronously and returns the JSON array of all elements
+// of every batch returned by the database.
 func (t *Transaction) Run(db *DB) ([]byte, error) {
 	async, err := t.RunAsync(db)
 	if err != nil {
@@ -71,7 +73,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 	return db.syncResult(async)
 }
 
-// Run executes the Transaction into the database passed as argument.
+// RunAsync runs the transaction asynchronously and returns an async Result object.
 func (t *Transaction) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")

@@ -3,7 +3,6 @@ package arangolite
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -22,8 +21,9 @@ func New() *DB {
 	return &DB{conn: &http.Client{}, l: newLogger()}
 }
 
+// LoggerOptions sets the Arangolite logger options.
 func (db *DB) LoggerOptions(enabled, printQuery, printResult bool) *DB {
-	db.l.Enabled(enabled).PrintQuery(printQuery).PrintResult(printResult)
+	db.l.Options(enabled, printQuery, printResult)
 	return db
 }
 
@@ -37,14 +37,16 @@ func (db *DB) Connect(url, database, user, password string) *DB {
 	return db
 }
 
-type RunnableQuery interface {
+// runnableQuery defines queries runnable by the "runQuery" method.
+type runnableQuery interface {
 	description() string
 	generate() []byte
 	decode(io.ReadCloser, *result)
 }
 
 // runQuery executes a query at the path passed as argument.
-func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, error) {
+// It returns a channel where the extracted content of each batch is returned.
+func (db *DB) runQuery(path string, query runnableQuery) (chan interface{}, error) {
 	if query == nil {
 		return nil, errors.New("nil or empty query")
 	}
@@ -82,7 +84,7 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 	in <- result.Content
 
 	if result.HasMore {
-		go db.followCursor(fullURL+"/"+result.ID, in)
+		go db.followCursor(fullURL+"/"+result.ID, query, in)
 	} else {
 		in <- nil
 	}
@@ -90,7 +92,9 @@ func (db *DB) runQuery(path string, query RunnableQuery) (chan interface{}, erro
 	return out, nil
 }
 
-func (db *DB) followCursor(url string, c chan interface{}) {
+// followCursor requests the cursor in database, put the result in the channel
+// and follow while more batches are available.
+func (db *DB) followCursor(url string, query runnableQuery, c chan interface{}) {
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
 	if err != nil {
 		c <- err
@@ -104,9 +108,7 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	}
 
 	result := &result{}
-
-	json.NewDecoder(r.Body).Decode(result)
-	r.Body.Close()
+	query.decode(r.Body, result)
 
 	if result.Error {
 		c <- errors.New(result.ErrorMessage)
@@ -116,12 +118,14 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	c <- result.Content
 
 	if result.HasMore {
-		go db.followCursor(url, c)
+		go db.followCursor(url, query, c)
 	} else {
 		c <- nil
 	}
 }
 
+// syncResult	synchronise the async result and return a JSON array of all elements
+// of every batch returned by the database.
 func (db *DB) syncResult(async *Result) ([]byte, error) {
 	result := []byte{'['}
 
