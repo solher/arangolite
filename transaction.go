@@ -1,9 +1,9 @@
 package arangolite
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -100,21 +100,28 @@ func (t *Transaction) generate() []byte {
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
-	jsFunc := "function () {var db = require(`internal`).db; "
+	jsFunc := bytes.NewBufferString("function () {var db = require(`internal`).db; ")
 
 	for i, query := range t.queries {
 		query.aql = replaceTemplate(query.aql)
 		varName := t.resultVars[i]
 
-		if len(varName) == 0 {
-			jsFunc = fmt.Sprintf("%sdb._query(`%s`); ", jsFunc, query.aql)
-		} else {
-			jsFunc = fmt.Sprintf("%svar %s = db._query(`%s`); ", jsFunc, varName, query.aql)
+		if len(varName) > 0 {
+			jsFunc.WriteString("var ")
+			jsFunc.WriteString(varName)
+			jsFunc.WriteString(" = ")
 		}
+
+		jsFunc.WriteString("db._query(`")
+		jsFunc.WriteString(query.aql)
+		jsFunc.WriteString("`);")
 	}
 
-	transactionFmt.Action = jsFunc + "return " + t.returnVar + ";}"
+	jsFunc.WriteString(" return ")
+	jsFunc.WriteString(t.returnVar)
+	jsFunc.WriteString(";}")
 
+	transactionFmt.Action = jsFunc.String()
 	jsonTransaction, _ := json.Marshal(transactionFmt)
 
 	return jsonTransaction
@@ -138,8 +145,6 @@ func (t *Transaction) decode(body io.ReadCloser, r *result) {
 }
 
 func replaceTemplate(query string) string {
-	var jsResult string
-
 	reg, _ := regexp.Compile("{{\\.(.*)}}")
 	templates := reg.FindAllString(query, -1)
 
@@ -147,9 +152,13 @@ func replaceTemplate(query string) string {
 		return query
 	}
 
+	jsResult := bytes.NewBuffer(nil)
+
 	for _, t := range templates {
-		jsResult = "` + JSON.stringify(" + t[3:len(t)-2] + "._documents) + `"
-		query = strings.Replace(query, t, jsResult, -1)
+		jsResult.WriteString("` + JSON.stringify(")
+		jsResult.WriteString(t[3 : len(t)-2])
+		jsResult.WriteString("._documents) + `")
+		query = strings.Replace(query, t, jsResult.String(), -1)
 	}
 
 	return query

@@ -11,15 +11,6 @@ type result struct {
 	ID           string          `json:"id"`
 }
 
-// TransactionResult represents the ArangoDB results returned by the REST API when an
-// ArangoDB transaction is executed.
-type TransactionResult struct {
-	result
-	Content struct {
-		TransactionContent json.RawMessage `json:"_documents"`
-	} `json:"result"`
-}
-
 type Result struct {
 	c       chan interface{}
 	hasNext bool

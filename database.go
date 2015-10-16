@@ -105,7 +105,7 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 
 	result := &result{}
 
-	_ = json.NewDecoder(r.Body).Decode(result)
+	json.NewDecoder(r.Body).Decode(result)
 	r.Body.Close()
 
 	if result.Error {
