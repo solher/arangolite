@@ -10,23 +10,50 @@ import (
 
 type logger struct {
 	log.Logger
+	printQuery  bool
+	printResult bool
 }
 
-func newLogger(enabled bool) *logger {
+func newLogger() *logger {
+	l := &logger{}
+	l.Logger = *log.New(os.Stdout, "", 0)
+	l.printQuery = true
+	l.printResult = true
+
+	return l
+}
+
+func (l *logger) Enabled(enabled bool) *logger {
 	var out *os.File
 
 	if enabled {
 		out = os.Stdout
 	}
 
-	return &logger{*log.New(out, "\n[Arangolite] ", 0)}
+	l.Logger = *log.New(out, "", 0)
+
+	return l
 }
 
-func (l *logger) logBegin(msg, url string, jsonQuery []byte) {
-	l.Printf("%s %s %s | URL: %s\n    %s", blue, msg, reset, url, indentJSON(jsonQuery))
+func (l *logger) PrintQuery(enabled bool) *logger {
+	l.printQuery = enabled
+	return l
 }
 
-func (l *logger) logResult(result *result, start time.Time, in, out chan interface{}) {
+func (l *logger) PrintResult(enabled bool) *logger {
+	l.printResult = enabled
+	return l
+}
+
+func (l *logger) LogBegin(msg, url string, jsonQuery []byte) {
+	l.Printf("\n[Arangolite] %s %s %s | URL: %s", blue, msg, reset, url)
+
+	if l.printQuery {
+		l.Println("    " + string(indentJSON(jsonQuery)))
+	}
+}
+
+func (l *logger) LogResult(result *result, start time.Time, in, out chan interface{}) {
 	batchNb := 0
 
 	for {
@@ -42,22 +69,26 @@ func (l *logger) logResult(result *result, start time.Time, in, out chan interfa
 	}
 
 	execTime := time.Now().Sub(start)
-	content := string(indentJSON([]byte(result.Content)))
-	if len(content) > 5000 {
-		content = content[0:5000] + "\n\n    Result has been truncated to 5000 characters"
-	}
 
 	if result.Cached {
-		l.Printf("%s RESULT %s | %s CACHED %s | Execution: %v | Batches: %d\n    %s",
-			blue, reset, yellow, reset, execTime, batchNb, content)
+		l.Printf("\n[Arangolite] %s RESULT %s | %s CACHED %s | Execution: %v | Batches: %d",
+			blue, reset, yellow, reset, execTime, batchNb)
 	} else {
-		l.Printf("%s RESULT %s | Execution: %v | Batches: %d\n    %s",
-			blue, reset, execTime, batchNb, content)
+		l.Printf("\n[Arangolite] %s RESULT %s | Execution: %v | Batches: %d",
+			blue, reset, execTime, batchNb)
+	}
+
+	if l.printResult {
+		content := "    " + string(indentJSON([]byte(result.Content)))
+		if batchNb > 1 {
+			content += "\n\n    Result has been truncated to the first batch"
+		}
+		l.Println(content)
 	}
 }
 
-func (l *logger) logError(errMsg string, execTime time.Duration) {
-	l.Printf("%s RESULT %s | Execution: %v\n    ERROR: %s",
+func (l *logger) LogError(errMsg string, execTime time.Duration) {
+	l.Printf("\n[Arangolite] %s RESULT %s | Execution: %v\n    ERROR: %s",
 		blue, reset, execTime, errMsg)
 }
 
