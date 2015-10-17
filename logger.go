@@ -10,13 +10,13 @@ import (
 
 type logger struct {
 	log.Logger
-	printQuery  bool
-	printResult bool
+	enabled, printQuery, printResult bool
 }
 
 func newLogger() *logger {
 	l := &logger{}
 	l.Logger = *log.New(os.Stdout, "", 0)
+	l.enabled = true
 	l.printQuery = true
 	l.printResult = true
 
@@ -24,14 +24,7 @@ func newLogger() *logger {
 }
 
 func (l *logger) Options(enabled, printQuery, printResult bool) *logger {
-	var out *os.File
-
-	if enabled {
-		out = os.Stdout
-	}
-
-	l.Logger = *log.New(out, "", 0)
-
+	l.enabled = enabled
 	l.printQuery = printQuery
 	l.printResult = printResult
 
@@ -39,6 +32,10 @@ func (l *logger) Options(enabled, printQuery, printResult bool) *logger {
 }
 
 func (l *logger) LogBegin(msg, url string, jsonQuery []byte) {
+	if !l.enabled {
+		return
+	}
+
 	l.Printf("\n[Arangolite] %s %s %s | URL: %s", blue, msg, reset, url)
 
 	if l.printQuery {
@@ -61,6 +58,10 @@ func (l *logger) LogResult(result *result, start time.Time, in, out chan interfa
 		break
 	}
 
+	if !l.enabled {
+		return
+	}
+
 	execTime := time.Now().Sub(start)
 
 	if result.Cached {
@@ -80,9 +81,13 @@ func (l *logger) LogResult(result *result, start time.Time, in, out chan interfa
 	}
 }
 
-func (l *logger) LogError(errMsg string, execTime time.Duration) {
+func (l *logger) LogError(errMsg string, start time.Time) {
+	if !l.enabled {
+		return
+	}
+
 	l.Printf("\n[Arangolite] %s RESULT %s | Execution: %v\n    ERROR: %s",
-		blue, reset, execTime, errMsg)
+		blue, reset, time.Now().Sub(start), errMsg)
 }
 
 var (
@@ -98,7 +103,7 @@ var (
 
 func indentJSON(in []byte) []byte {
 	b := &bytes.Buffer{}
-	_ = json.Indent(b, in, "    ", "  ")
+	json.Indent(b, in, "    ", "  ")
 
 	return b.Bytes()
 }

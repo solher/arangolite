@@ -44,7 +44,7 @@ func (q *Query) Run(db *DB) ([]byte, error) {
 		return nil, err
 	}
 
-	return db.syncResult(async)
+	return db.syncResult(async), nil
 }
 
 // RunAsync runs the query asynchronously and returns an async Result object.

@@ -67,7 +67,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, err
 	}
 
-	return db.syncResult(&Result{c: c, hasNext: true})
+	return db.syncResult(&Result{c: c, hasNext: true}), nil
 }
 
 func (t *Transaction) generate() []byte {
@@ -96,10 +96,10 @@ func (t *Transaction) generate() []byte {
 
 		jsFunc.WriteString("db._query(aqlQuery`")
 		jsFunc.WriteString(query.aql)
-		jsFunc.WriteString("`).toArray();")
+		jsFunc.WriteString("`).toArray(); ")
 	}
 
-	jsFunc.WriteString(" return ")
+	jsFunc.WriteString("return ")
 	jsFunc.WriteString(t.returnVar)
 	jsFunc.WriteString(";}")
 

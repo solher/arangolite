@@ -60,13 +60,13 @@ func (db *DB) runQuery(path string, query runnableQuery) (chan interface{}, erro
 
 	req, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(jsonQuery))
 	if err != nil {
-		db.l.LogError(err.Error(), time.Now().Sub(start))
+		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
 
 	r, err := db.conn.Do(req)
 	if err != nil {
-		db.l.LogError(err.Error(), time.Now().Sub(start))
+		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
 
@@ -75,7 +75,7 @@ func (db *DB) runQuery(path string, query runnableQuery) (chan interface{}, erro
 	r.Body.Close()
 
 	if result.Error {
-		db.l.LogError(result.ErrorMessage, time.Now().Sub(start))
+		db.l.LogError(result.ErrorMessage, start)
 		return nil, errors.New(result.ErrorMessage)
 	}
 
@@ -95,11 +95,7 @@ func (db *DB) runQuery(path string, query runnableQuery) (chan interface{}, erro
 // followCursor requests the cursor in database, put the result in the channel
 // and follow while more batches are available.
 func (db *DB) followCursor(url string, query runnableQuery, c chan interface{}) {
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
-	if err != nil {
-		c <- err
-		return
-	}
+	req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
 
 	r, err := db.conn.Do(req)
 	if err != nil {
@@ -127,7 +123,7 @@ func (db *DB) followCursor(url string, query runnableQuery, c chan interface{}) 
 
 // syncResult	synchronise the async result and return a JSON array of all elements
 // of every batch returned by the database.
-func (db *DB) syncResult(async *Result) ([]byte, error) {
+func (db *DB) syncResult(async *Result) []byte {
 	result := []byte{'['}
 
 	for async.HasNext() {
@@ -141,9 +137,13 @@ func (db *DB) syncResult(async *Result) ([]byte, error) {
 		result = append(result, ',')
 	}
 
+	if len(result) <= 1 {
+		return []byte{'[', ']'}
+	}
+
 	result = append(result[:len(result)-1], ']')
 
-	return result, nil
+	return result
 }
 
 func getFullURL(db *DB, path string) string {
