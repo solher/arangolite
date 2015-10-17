@@ -3,8 +3,8 @@ package arangolite
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 )
@@ -41,7 +41,6 @@ func (db *DB) Connect(url, database, user, password string) *DB {
 type runnableQuery interface {
 	description() string
 	generate() []byte
-	decode(io.ReadCloser, *result)
 }
 
 // runQuery executes a query at the path passed as argument.
@@ -72,7 +71,8 @@ func (db *DB) runQuery(path string, query runnableQuery) (chan interface{}, erro
 	}
 
 	result := &result{}
-	query.decode(r.Body, result)
+	json.NewDecoder(r.Body).Decode(result)
+	r.Body.Close()
 
 	if result.Error {
 		db.l.LogError(result.ErrorMessage, time.Now().Sub(start))
@@ -108,7 +108,8 @@ func (db *DB) followCursor(url string, query runnableQuery, c chan interface{}) 
 	}
 
 	result := &result{}
-	query.decode(r.Body, result)
+	json.NewDecoder(r.Body).Decode(result)
+	r.Body.Close()
 
 	if result.Error {
 		c <- errors.New(result.ErrorMessage)

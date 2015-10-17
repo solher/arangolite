@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 )
 
@@ -17,8 +16,9 @@ type Query struct {
 
 // NewQuery returns a new Query object.
 func NewQuery(aql string, params ...interface{}) *Query {
+	aql = processAQLQuery(aql) // Process to remove eventual tabs/spaces used when indenting the query
 	aql = fmt.Sprintf(aql, params...)
-	aql = processAQLQuery(aql)
+	aql = strings.Replace(aql, `"`, "'", -1) // Replace by single quotes so there is no conflict when serialised in JSON
 
 	return &Query{aql: aql}
 }
@@ -82,13 +82,7 @@ func (q *Query) description() string {
 	return "QUERY"
 }
 
-func (q *Query) decode(body io.ReadCloser, r *result) {
-	json.NewDecoder(body).Decode(r)
-	body.Close()
-}
-
 func processAQLQuery(query string) string {
-	query = strings.Replace(query, `"`, "'", -1)
 	query = strings.Replace(query, "\n", " ", -1)
 	query = strings.Replace(query, "\t", "", -1)
 

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"regexp"
 	"strings"
 )
 
@@ -41,7 +39,7 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 //
 func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Transaction {
 	t.resultVars = append(t.resultVars, resultVar)
-	t.queries = append(t.queries, *NewQuery(aql, params...))
+	t.queries = append(t.queries, *NewQuery(toES6Template(aql), params...))
 
 	if len(resultVar) != 0 {
 		t.returnVar = resultVar
@@ -56,25 +54,9 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 	return t
 }
 
-// BatchSize sets the batch size of the transaction
-func (t *Transaction) BatchSize(size int) *Transaction {
-	t.batchSize = size
-	return t
-}
-
 // Run runs the transaction synchronously and returns the JSON array of all elements
 // of every batch returned by the database.
 func (t *Transaction) Run(db *DB) ([]byte, error) {
-	async, err := t.RunAsync(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return db.syncResult(async)
-}
-
-// RunAsync runs the transaction asynchronously and returns an async Result object.
-func (t *Transaction) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")
 	}
@@ -85,7 +67,7 @@ func (t *Transaction) RunAsync(db *DB) (*Result, error) {
 		return nil, err
 	}
 
-	return &Result{c: c, hasNext: true}, nil
+	return db.syncResult(&Result{c: c, hasNext: true})
 }
 
 func (t *Transaction) generate() []byte {
@@ -94,18 +76,16 @@ func (t *Transaction) generate() []byte {
 			Read  []string `json:"read"`
 			Write []string `json:"write"`
 		} `json:"collections"`
-		Action    string `json:"action"`
-		BatchSize int    `json:"batchSize,omitempty"`
+		Action string `json:"action"`
 	}
 
-	transactionFmt := &TransactionFmt{BatchSize: t.batchSize}
+	transactionFmt := &TransactionFmt{}
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
 	jsFunc := bytes.NewBufferString("function () {var db = require(`internal`).db; ")
 
 	for i, query := range t.queries {
-		query.aql = replaceTemplate(query.aql)
 		varName := t.resultVars[i]
 
 		if len(varName) > 0 {
@@ -114,9 +94,9 @@ func (t *Transaction) generate() []byte {
 			jsFunc.WriteString(" = ")
 		}
 
-		jsFunc.WriteString("db._query(`")
+		jsFunc.WriteString("db._query(aqlQuery`")
 		jsFunc.WriteString(query.aql)
-		jsFunc.WriteString("`);")
+		jsFunc.WriteString("`).toArray();")
 	}
 
 	jsFunc.WriteString(" return ")
@@ -133,35 +113,7 @@ func (t *Transaction) description() string {
 	return "TRANSACTION"
 }
 
-func (t *Transaction) decode(body io.ReadCloser, r *result) {
-	json.NewDecoder(body).Decode(r)
-	body.Close()
-
-	content := &struct {
-		Documents json.RawMessage `json:"_documents"`
-	}{}
-
-	json.Unmarshal(r.Content, content)
-
-	r.Content = content.Documents
-}
-
-func replaceTemplate(query string) string {
-	reg, _ := regexp.Compile("{{\\.(.*)}}")
-	templates := reg.FindAllString(query, -1)
-
-	if templates == nil {
-		return query
-	}
-
-	jsResult := bytes.NewBuffer(nil)
-
-	for _, t := range templates {
-		jsResult.WriteString("` + JSON.stringify(")
-		jsResult.WriteString(t[3 : len(t)-2])
-		jsResult.WriteString("._documents) + `")
-		query = strings.Replace(query, t, jsResult.String(), -1)
-	}
-
-	return query
+func toES6Template(query string) string {
+	query = strings.Replace(query, "{{.", "${", -1)
+	return strings.Replace(query, "}}", "}", -1)
 }
