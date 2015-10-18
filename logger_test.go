@@ -70,6 +70,7 @@ func TestLogger(t *testing.T) {
 	<-out
 	<-out
 	<-out
+	time.Sleep(time.Millisecond)
 	r.Contains(output.String(), "foo")
 	output.Reset()
 }
