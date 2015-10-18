@@ -54,7 +54,7 @@ func (q *Query) RunAsync(db *DB) (*Result, error) {
 	}
 
 	if len(q.aql) == 0 {
-		return &Result{hasNext: false}, nil
+		return NewResult(nil), nil
 	}
 
 	c, err := db.runQuery("/_api/cursor", q)
@@ -63,7 +63,7 @@ func (q *Query) RunAsync(db *DB) (*Result, error) {
 		return nil, err
 	}
 
-	return &Result{c: c, hasNext: true}, nil
+	return NewResult(c), nil
 }
 
 func (q *Query) generate() []byte {

@@ -124,26 +124,10 @@ func (db *DB) followCursor(url string, query runnableQuery, c chan interface{}) 
 // syncResult	synchronise the async result and return a JSON array of all elements
 // of every batch returned by the database.
 func (db *DB) syncResult(async *Result) []byte {
-	result := []byte{'['}
-
-	for async.HasNext() {
-		r := async.Next()
-
-		if len(r) == 0 {
-			continue
-		}
-
-		result = append(result, r[1:len(r)-1]...)
-		result = append(result, ',')
+	buffer := async.Buffer()
+	for async.HasMore() {
 	}
-
-	if len(result) <= 1 {
-		return []byte{'[', ']'}
-	}
-
-	result = append(result[:len(result)-1], ']')
-
-	return result
+	return buffer.Bytes()
 }
 
 func getFullURL(db *DB, path string) string {

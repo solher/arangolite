@@ -1,6 +1,9 @@
 package arangolite
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 type result struct {
 	Error        bool            `json:"error"`
@@ -14,22 +17,48 @@ type result struct {
 // Result defines a query result, allowing the user to retrieve asynchronously
 // every batch returned by the database.
 type Result struct {
-	c       chan interface{}
-	hasNext bool
+	c      chan interface{}
+	buffer *bytes.Buffer
 }
 
-// HasNext indicates if another batch is available to get.
-func (r *Result) HasNext() bool {
-	return r.hasNext
+func NewResult(c chan interface{}) *Result {
+	return &Result{c: c, buffer: bytes.NewBuffer([]byte{'['})}
+}
+
+// HasMore indicates if another batch is available to get.
+func (r *Result) HasMore() bool {
+	if r.c == nil {
+		return false
+	}
+
+	obj := <-r.c
+	switch msg := obj.(type) {
+	case json.RawMessage:
+		r.buffer.Write(msg[1 : len(msg)-1])
+		r.buffer.WriteRune(',')
+		return true
+	}
+
+	if r.buffer.Len() > 1 {
+		r.buffer.Truncate(r.buffer.Len() - 1)
+	}
+
+	r.buffer.WriteRune(']')
+
+	return false
 }
 
 // Next returns the JSON formatted next batch.
-func (ar *Result) Next() []byte {
-	switch r := <-ar.c; r.(type) {
-	case json.RawMessage:
-		return r.(json.RawMessage)
-	}
+// func (ar *Result) Next() []byte {
+// 	switch r := <-ar.c; r.(type) {
+// 	case json.RawMessage:
+// 		return r.(json.RawMessage)
+// 	}
+//
+// 	ar.hasNext = false
+// 	return nil
+// }
 
-	ar.hasNext = false
-	return nil
+func (ar *Result) Buffer() *bytes.Buffer {
+	return ar.buffer
 }

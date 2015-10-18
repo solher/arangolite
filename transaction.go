@@ -61,13 +61,17 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, errors.New("nil database")
 	}
 
+	if len(t.queries) == 0 {
+		return []byte{}, nil
+	}
+
 	c, err := db.runQuery("/_api/transaction", t)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return db.syncResult(&Result{c: c, hasNext: true}), nil
+	return db.syncResult(NewResult(c)), nil
 }
 
 func (t *Transaction) generate() []byte {
