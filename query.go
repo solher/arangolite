@@ -10,7 +10,7 @@ import (
 // Query represents an AQL query.
 type Query struct {
 	aql       string
-	cache     bool
+	cache     *bool
 	batchSize int
 }
 
@@ -26,7 +26,7 @@ func NewQuery(aql string, params ...interface{}) *Query {
 // Cache enables/disables the caching of the query.
 // Unavailable prior to ArangoDB 2.7
 func (q *Query) Cache(enable bool) *Query {
-	q.cache = enable
+	q.cache = &enable
 	return q
 }
 
@@ -69,7 +69,7 @@ func (q *Query) RunAsync(db *DB) (*Result, error) {
 func (q *Query) generate() []byte {
 	type QueryFmt struct {
 		Query     string `json:"query"`
-		Cache     bool   `json:"cache"`
+		Cache     *bool  `json:"cache,omitempty"`
 		BatchSize int    `json:"batchSize,omitempty"`
 	}
 
