@@ -29,26 +29,37 @@ type Node struct {
 }
 
 func main() {
-  db := arangolite.New(true)
-  db.Connect("http://localhost:8000", "testDB", "user", "password")
+  db := arangolite.New().
+    LoggerOptions(false, false, false).
+    Connect("http://localhost:8000", "testDB", "user", "password")
 
   key := "48765564346"
 
-  r, err := arangolite.NewQuery(`
+  query := arangolite.NewQuery(`
     FOR n
     IN nodes
     FILTER n._key == %s
     RETURN n
-  `, key).Cache(true).Run(db) // The caching feature is unavailable prior to ArangoDB 2.7
+  `, key).Cache(true).BatchSize(500) // The caching feature is unavailable prior to ArangoDB 2.7
 
-  if err != nil {
-    panic(err)
-  }
+  // The Run method returns all the query results of every batches
+  // available in the cursor as a slice of byte.
+  r, _ := query.Run(db)
 
   nodes := []Node{}
+  json.Unmarshal(r, &nodes)
 
-  if err = json.Unmarshal(r, &nodes); err != nil {
-    panic(err)
+  // The RunAsync method returns a Result struct allowing to handle batches as they
+  // are retrieved from the database.
+  async, _ := query.RunAsync(db)
+
+  nodes = []Node{}
+  decoder := json.NewDecoder(async.Buffer())
+
+  for async.HasMore() {
+    batch := []Node{}
+    decoder.Decode(batch)
+    nodes = append(nodes, batch...)
   }
 
   fmt.Printf("%v", nodes)
@@ -95,11 +106,11 @@ The only limitation is that no Javascript processing can be manually added insid
 
 ```go
 func main() {
-  db := arangolite.New(true)
+  db := arangolite.New()
   db.Connect("http://localhost:8000", "testDB", "user", "password")
 
-  r, err := arangolite.NewTransaction([]string{"nodes"}, nil).
-    AddQuery("nodes", `
+  r, _ := arangolite.NewTransaction([]string{"nodes"}, nil).
+  AddQuery("nodes", `
     FOR n
     IN nodes
     RETURN n
@@ -109,15 +120,8 @@ func main() {
     RETURN n._id
   `).Return("ids").Run(db)
 
-  if err != nil {
-    panic(err)
-  }
-
   ids := []string{}
-
-  if err = json.Unmarshal(r, &ids); err != nil {
-    panic(err)
-  }
+  json.Unmarshal(r, &ids)
 
   fmt.Printf("%v", ids)
 }
@@ -205,22 +209,15 @@ func main() {
     panic(err)
   }
 
-  r, err := arangolite.NewQuery(`
+  r, _ := arangolite.NewQuery(`
     FOR n
     IN nodes
     %s
     RETURN n
   `, aqlFilter).Run(db)
 
-  if err != nil {
-    panic(err)
-  }
-
   nodes := []Node{}
-
-  if err = json.Unmarshal(r, &nodes); err != nil {
-    panic(err)
-  }
+  json.Unmarshal(r, &nodes)
 
   fmt.Printf("%v", nodes)
 }
