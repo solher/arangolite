@@ -13,7 +13,6 @@ type Transaction struct {
 	resultVars        []string
 	queries           []Query
 	returnVar         string
-	batchSize         int
 }
 
 // NewTransaction returns a new Transaction object.
@@ -40,11 +39,6 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Transaction {
 	t.resultVars = append(t.resultVars, resultVar)
 	t.queries = append(t.queries, *NewQuery(toES6Template(aql), params...))
-
-	if len(resultVar) != 0 {
-		t.returnVar = resultVar
-	}
-
 	return t
 }
 
@@ -115,9 +109,13 @@ func (t *Transaction) generate() []byte {
 		jsFunc.WriteString("`).toArray(); ")
 	}
 
-	jsFunc.WriteString("return ")
-	jsFunc.WriteString(t.returnVar)
-	jsFunc.WriteString(";}")
+	if len(t.returnVar) > 0 {
+		jsFunc.WriteString("return ")
+		jsFunc.WriteString(t.returnVar)
+		jsFunc.WriteString(";")
+	}
+
+	jsFunc.WriteRune('}')
 
 	transactionFmt.Action = jsFunc.String()
 	jsonTransaction, _ := json.Marshal(transactionFmt)
