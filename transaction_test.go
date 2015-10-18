@@ -35,6 +35,10 @@ func TestTransactionRun(t *testing.T) {
 	r.Error(err)
 	a.Nil(result)
 
+	result, err = NewTransaction(nil, nil).Run(db)
+	r.NoError(err)
+	a.Equal("[]", string(result))
+
 	result, err = NewTransaction([]string{"foo"}, []string{"bar"}).
 		AddQuery("var1", "FOR c IN customer RETURN c").
 		AddQuery("var2", "FOR c IN {{.var1}} RETURN c").

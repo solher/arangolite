@@ -57,12 +57,24 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 // Run runs the transaction synchronously and returns the JSON array of all elements
 // of every batch returned by the database.
 func (t *Transaction) Run(db *DB) ([]byte, error) {
+	async, err := t.RunAsync(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return db.syncResult(async), nil
+}
+
+// RunAsync runs the transaction asynchronously and returns an async Result object.
+// This method is only present for consistency as a transaction is always returned
+// in one single batch.
+func (t *Transaction) RunAsync(db *DB) (*Result, error) {
 	if db == nil {
 		return nil, errors.New("nil database")
 	}
 
 	if len(t.queries) == 0 {
-		return []byte{}, nil
+		return NewResult(nil), nil
 	}
 
 	c, err := db.runQuery("/_api/transaction", t)
@@ -71,7 +83,7 @@ func (t *Transaction) Run(db *DB) ([]byte, error) {
 		return nil, err
 	}
 
-	return db.syncResult(NewResult(c)), nil
+	return NewResult(c), nil
 }
 
 func (t *Transaction) generate() []byte {

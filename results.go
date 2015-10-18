@@ -21,44 +21,31 @@ type Result struct {
 	buffer *bytes.Buffer
 }
 
+// NewResult returns a new Result object.
 func NewResult(c chan interface{}) *Result {
-	return &Result{c: c, buffer: bytes.NewBuffer([]byte{'['})}
+	return &Result{c: c, buffer: bytes.NewBuffer(nil)}
 }
 
 // HasMore indicates if another batch is available to get.
+// If true, the content can be read from the buffer.
 func (r *Result) HasMore() bool {
 	if r.c == nil {
 		return false
 	}
 
+	r.buffer.Reset()
+
 	obj := <-r.c
 	switch msg := obj.(type) {
 	case json.RawMessage:
-		r.buffer.Write(msg[1 : len(msg)-1])
-		r.buffer.WriteRune(',')
+		r.buffer.Write(msg)
 		return true
 	}
-
-	if r.buffer.Len() > 1 {
-		r.buffer.Truncate(r.buffer.Len() - 1)
-	}
-
-	r.buffer.WriteRune(']')
 
 	return false
 }
 
-// Next returns the JSON formatted next batch.
-// func (ar *Result) Next() []byte {
-// 	switch r := <-ar.c; r.(type) {
-// 	case json.RawMessage:
-// 		return r.(json.RawMessage)
-// 	}
-//
-// 	ar.hasNext = false
-// 	return nil
-// }
-
-func (ar *Result) Buffer() *bytes.Buffer {
-	return ar.buffer
+// Buffer returns the Result buffer.
+func (r *Result) Buffer() *bytes.Buffer {
+	return r.buffer
 }
