@@ -2,7 +2,6 @@ package arangolite
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -36,34 +35,12 @@ func (q *Query) BatchSize(size int) *Query {
 	return q
 }
 
-// Run runs the query synchronously and returns the JSON array of all elements
-// of every batch returned by the database.
-func (q *Query) Run(db *DB) ([]byte, error) {
-	async, err := q.RunAsync(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return db.syncResult(async), nil
+func (q *Query) description() string {
+	return "QUERY"
 }
 
-// RunAsync runs the query asynchronously and returns an async Result object.
-func (q *Query) RunAsync(db *DB) (*Result, error) {
-	if db == nil {
-		return nil, errors.New("nil database")
-	}
-
-	if len(q.aql) == 0 {
-		return NewResult(nil), nil
-	}
-
-	c, err := db.runQuery("/_api/cursor", q)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return NewResult(c), nil
+func (q *Query) path() string {
+	return "/_api/cursor"
 }
 
 func (q *Query) generate() []byte {
@@ -76,10 +53,6 @@ func (q *Query) generate() []byte {
 	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache, BatchSize: q.batchSize})
 
 	return jsonQuery
-}
-
-func (q *Query) description() string {
-	return "QUERY"
 }
 
 func processAQLQuery(query string) string {

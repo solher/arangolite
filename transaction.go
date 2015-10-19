@@ -3,7 +3,6 @@ package arangolite
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"strings"
 )
 
@@ -48,36 +47,12 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 	return t
 }
 
-// Run runs the transaction synchronously and returns the JSON array of all elements
-// of every batch returned by the database.
-func (t *Transaction) Run(db *DB) ([]byte, error) {
-	async, err := t.RunAsync(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return db.syncResult(async), nil
+func (t *Transaction) description() string {
+	return "TRANSACTION"
 }
 
-// RunAsync runs the transaction asynchronously and returns an async Result object.
-// This method is only present for consistency as a transaction is always returned
-// in one single batch.
-func (t *Transaction) RunAsync(db *DB) (*Result, error) {
-	if db == nil {
-		return nil, errors.New("nil database")
-	}
-
-	if len(t.queries) == 0 {
-		return NewResult(nil), nil
-	}
-
-	c, err := db.runQuery("/_api/transaction", t)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return NewResult(c), nil
+func (t *Transaction) path() string {
+	return "/_api/transaction"
 }
 
 func (t *Transaction) generate() []byte {
@@ -121,10 +96,6 @@ func (t *Transaction) generate() []byte {
 	jsonTransaction, _ := json.Marshal(transactionFmt)
 
 	return jsonTransaction
-}
-
-func (t *Transaction) description() string {
-	return "TRANSACTION"
 }
 
 func toES6Template(query string) string {
