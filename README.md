@@ -35,7 +35,7 @@ func main() {
 
   key := "48765564346"
 
-  query := arangolite.NewQuery(`
+  q := arangolite.NewQuery(`
     FOR n
     IN nodes
     FILTER n._key == %s
@@ -44,14 +44,14 @@ func main() {
 
   // The Run method returns all the query results of every batches
   // available in the cursor as a slice of byte.
-  r, _ := query.Run(db)
+  r, _ := db.Run(q)
 
   nodes := []Node{}
   json.Unmarshal(r, &nodes)
 
   // The RunAsync method returns a Result struct allowing to handle batches as they
   // are retrieved from the database.
-  async, _ := query.RunAsync(db)
+  async, _ := db.RunAsync(q)
 
   nodes = []Node{}
   decoder := json.NewDecoder(async.Buffer())
@@ -109,7 +109,7 @@ func main() {
   db := arangolite.New()
   db.Connect("http://localhost:8000", "testDB", "user", "password")
 
-  r, _ := arangolite.NewTransaction([]string{"nodes"}, nil).
+  t := arangolite.NewTransaction([]string{"nodes"}, nil).
   AddQuery("nodes", `
     FOR n
     IN nodes
@@ -118,7 +118,9 @@ func main() {
     FOR n
     IN {{.nodes}}
     RETURN n._id
-  `).Return("ids").Run(db)
+  `).Return("ids")
+
+  r, _ := db.Run(t)
 
   ids := []string{}
   json.Unmarshal(r, &ids)
@@ -209,12 +211,12 @@ func main() {
     panic(err)
   }
 
-  r, _ := arangolite.NewQuery(`
+  r, _ := db.Run(arangolite.NewQuery(`
     FOR n
     IN nodes
     %s
     RETURN n
-  `, aqlFilter).Run(db)
+  `, aqlFilter))
 
   nodes := []Node{}
   json.Unmarshal(r, &nodes)
