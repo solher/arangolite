@@ -68,10 +68,19 @@ func TestRunQuery(t *testing.T) {
 	r.Error(err)
 	a.Nil(result)
 
+	// A database returning an unauthorized status is created
+	setUnauthorizedResponder()
+
+	// Unauthorized access
+	db.Connect("http://arangodb:8000", "dbName", "bar", "foo")
+	result, err = db.runQuery(&query{c: `{"query":"FOR c IN customer RETURN c"}`})
+	r.Error(err)
+	a.Nil(result)
+
 	// A valid database returning an empty result is created
 	setValidResponder()
 
-	// // The query is empty
+	// The query is empty
 	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
 	result, err = db.runQuery(&query{})
 	r.NoError(err)
@@ -118,6 +127,11 @@ func TestRunQuery(t *testing.T) {
 	r.NoError(err)
 	a.Equal("[]", string((<-result).(json.RawMessage)))
 	a.Equal("[]", string((<-result).(json.RawMessage)))
+}
+
+func setUnauthorizedResponder() {
+	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
+		httpmock.NewStringResponder(401, ``))
 }
 
 func setValidResponder() {

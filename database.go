@@ -11,9 +11,9 @@ import (
 
 // DB represents an access to an ArangoDB database.
 type DB struct {
-	url, database, user, password string
-	conn                          *http.Client
-	l                             *logger
+	url, database, username, password string
+	conn                              *http.Client
+	l                                 *logger
 }
 
 // New returns a new DB object.
@@ -28,10 +28,10 @@ func (db *DB) LoggerOptions(enabled, printQuery, printResult bool) *DB {
 }
 
 // Connect initialize a DB object with the database url and credentials.
-func (db *DB) Connect(url, database, user, password string) *DB {
+func (db *DB) Connect(url, database, username, password string) *DB {
 	db.url = url
 	db.database = database
-	db.user = user
+	db.username = username
 	db.password = password
 
 	return db
@@ -95,8 +95,15 @@ func (db *DB) runQuery(q Runnable) (chan interface{}, error) {
 		return nil, err
 	}
 
+	req.SetBasicAuth(db.username, db.password)
+
 	r, err := db.conn.Do(req)
 	if err != nil {
+		db.l.LogError(err.Error(), start)
+		return nil, err
+	}
+	if r.StatusCode == http.StatusUnauthorized {
+		err = errors.New("unauthorized: invalid credentials")
 		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
