@@ -55,6 +55,10 @@ func (t *Transaction) path() string {
 	return "/_api/transaction"
 }
 
+func (t *Transaction) method() string {
+	return "POST"
+}
+
 func (t *Transaction) generate() []byte {
 	type TransactionFmt struct {
 		Collections struct {

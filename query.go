@@ -43,6 +43,10 @@ func (q *Query) path() string {
 	return "/_api/cursor"
 }
 
+func (q *Query) method() string {
+	return "POST"
+}
+
 func (q *Query) generate() []byte {
 	type QueryFmt struct {
 		Query     string `json:"query"`
