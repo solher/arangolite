@@ -38,7 +38,7 @@ func (l *logger) LogBegin(msg, method, url string, jsonQuery []byte) {
 
 	l.Printf("\n[Arangolite] %s %s %s | %s %s", blue, msg, reset, method, url)
 
-	if l.printQuery {
+	if l.printQuery && jsonQuery != nil && len(jsonQuery) != 0 {
 		l.Println("    " + string(indentJSON(jsonQuery)))
 	}
 }
@@ -96,8 +96,8 @@ func (l *logger) LogError(errMsg string, start time.Time) {
 		return
 	}
 
-	l.Printf("\n[Arangolite] %s RESULT %s | Execution: %v\n    ERROR: %s",
-		blue, reset, time.Now().Sub(start), errMsg)
+	l.Printf("\n[Arangolite] %s ERROR %s | Execution: %v | Message: %s",
+		red, reset, time.Now().Sub(start), errMsg)
 }
 
 var (
