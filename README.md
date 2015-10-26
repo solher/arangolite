@@ -31,7 +31,19 @@ type Node struct {
 func main() {
   db := arangolite.New().
     LoggerOptions(false, false, false).
-    Connect("http://localhost:8000", "testDB", "user", "password")
+    Connect("http://localhost:8000", "_system", "root", "rootPassword")
+
+  _, _ := db.Run(&arangolite.CreateDatabase{
+		Name: "testDB",
+		Users: []map[string]interface{}{
+			{"username": "root", "passwd": "rootPassword"},
+			{"username": "user", "passwd": "password"},
+		},
+	})
+
+  _, _ := db.Run(&arangolite.CreateCollection{Name: "nodes"})
+
+  db.SwitchDatabase("testDB").SwitchUser("user", "password")
 
   key := "48765564346"
 
@@ -65,7 +77,7 @@ func main() {
   fmt.Printf("%v", nodes)
 }
 
-// OUTPUT:
+// OUTPUT EXAMPLE:
 // [
 //   {
 //     "_id": "nodes/48765564346",
@@ -224,7 +236,7 @@ func main() {
   fmt.Printf("%v", nodes)
 }
 
-// OUTPUT:
+// OUTPUT EXAMPLE:
 // [
 //   {
 //     "_id": "nodes/47473545749",
@@ -239,10 +251,31 @@ func main() {
 // ]
 ```
 
-## Roadmap
+## Contributing
 
-- Add database and collection management.
-- Reduce filter processing overhead.
+Currently, very few methods of the ArangoDB HTTP API are implemented in Arangolite.
+Fortunately, it is really easy to add your own. There are two ways:
+
+- Using the `Send` method, passing a struct representing the request you want to send.
+
+```go
+func (db *DB) Send(description, method, path string, req interface{}) ([]byte, error) {}
+```
+
+- Implementing the `Runnable` interface. You can then use the regular `Run` method.
+
+```go
+// Runnable defines requests runnable by the Run and RunAsync methods.
+// Queries, transactions and everything in the requests.go file are Runnable.
+type Runnable interface {
+	description() string // Description shown in the logger
+	generate() []byte // The body of the request
+	path() string // The path where to send the request
+	method() string // The HTTP method to use
+}
+```
+
+**Please pull request in the requests.go file when you implement some new features so everybody can use it.**
 
 ## License
 

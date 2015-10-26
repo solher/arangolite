@@ -53,10 +53,10 @@ func (db *DB) SwitchUser(username, password string) *DB {
 // Runnable defines requests runnable by the Run and RunAsync methods.
 // Queries, transactions and everything in the requests.go file are Runnable.
 type Runnable interface {
-	description() string
-	generate() []byte
-	path() string
-	method() string
+	description() string // Description shown in the logger
+	generate() []byte    // The body of the request
+	path() string        // The path where to send the request
+	method() string      // The HTTP method to use
 }
 
 // Run runs the Runnable synchronously and returns the JSON array of all elements
