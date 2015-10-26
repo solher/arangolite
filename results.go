@@ -37,6 +37,9 @@ func (r *Result) HasMore() bool {
 
 	obj := <-r.c
 	switch msg := obj.(type) {
+	case []byte:
+		r.buffer.Write(msg)
+		return true
 	case json.RawMessage:
 		r.buffer.Write(msg)
 		return true

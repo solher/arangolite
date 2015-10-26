@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -97,7 +98,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	out := make(chan interface{}, 16)
 	fullURL := getFullURL(db, path)
 
-	db.l.LogBegin(description, fullURL, body)
+	db.l.LogBegin(description, method, fullURL, body)
 	start := time.Now()
 
 	req, err := http.NewRequest(method, fullURL, bytes.NewBuffer(body))
@@ -119,8 +120,10 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 		return nil, err
 	}
 
+	rawResult, _ := ioutil.ReadAll(r.Body)
+
 	result := &result{}
-	json.NewDecoder(r.Body).Decode(result)
+	json.Unmarshal(body, rawResult)
 	r.Body.Close()
 
 	if result.Error {
@@ -128,9 +131,13 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 		return nil, errors.New(result.ErrorMessage)
 	}
 
-	go db.l.LogResult(result, start, in, out)
+	go db.l.LogResult(result.Cached, start, in, out)
 
-	in <- result.Content
+	if len(result.Content) != 0 {
+		in <- result.Content
+	} else {
+		in <- rawResult
+	}
 
 	if result.HasMore {
 		go db.followCursor(fullURL+"/"+result.ID, in)

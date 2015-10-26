@@ -31,28 +31,38 @@ func (l *logger) Options(enabled, printQuery, printResult bool) *logger {
 	return l
 }
 
-func (l *logger) LogBegin(msg, url string, jsonQuery []byte) {
+func (l *logger) LogBegin(msg, method, url string, jsonQuery []byte) {
 	if !l.enabled {
 		return
 	}
 
-	l.Printf("\n[Arangolite] %s %s %s | URL: %s", blue, msg, reset, url)
+	l.Printf("\n[Arangolite] %s %s %s | %s %s", blue, msg, reset, method, url)
 
 	if l.printQuery {
 		l.Println("    " + string(indentJSON(jsonQuery)))
 	}
 }
 
-func (l *logger) LogResult(result *result, start time.Time, in, out chan interface{}) {
+func (l *logger) LogResult(cached bool, start time.Time, in, out chan interface{}) {
 	batchNb := 0
+	firstBatch := []byte{}
 
 	for {
 		tmp := <-in
 		out <- tmp
 
-		switch tmp.(type) {
+		switch t := tmp.(type) {
+		case []byte:
+			batchNb++
+			if batchNb == 1 {
+				firstBatch = t
+			}
+			continue
 		case json.RawMessage:
 			batchNb++
+			if batchNb == 1 {
+				firstBatch = t
+			}
 			continue
 		}
 		break
@@ -64,7 +74,7 @@ func (l *logger) LogResult(result *result, start time.Time, in, out chan interfa
 
 	execTime := time.Now().Sub(start)
 
-	if result.Cached {
+	if cached {
 		l.Printf("\n[Arangolite] %s RESULT %s | %s CACHED %s | Execution: %v | Batches: %d",
 			blue, reset, yellow, reset, execTime, batchNb)
 	} else {
@@ -73,7 +83,7 @@ func (l *logger) LogResult(result *result, start time.Time, in, out chan interfa
 	}
 
 	if l.printResult {
-		content := "    " + string(indentJSON([]byte(result.Content)))
+		content := "    " + string(indentJSON(firstBatch))
 		if batchNb > 1 {
 			content += "\n\n    Result has been truncated to the first batch"
 		}
