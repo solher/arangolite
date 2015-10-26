@@ -50,6 +50,15 @@ func (db *DB) SwitchUser(username, password string) *DB {
 	return db
 }
 
+// Runnable defines requests runnable by the Run and RunAsync methods.
+// Queries, transactions and everything in the requests.go file are Runnable.
+type Runnable interface {
+	description() string
+	generate() []byte
+	path() string
+	method() string
+}
+
 // Run runs the Runnable synchronously and returns the JSON array of all elements
 // of every batch returned by the database.
 func (db *DB) Run(q Runnable) ([]byte, error) {
@@ -80,7 +89,11 @@ func (db *DB) RunAsync(q Runnable) (*Result, error) {
 	return NewResult(c), nil
 }
 
-// Send runs the Runnable asynchronously and returns an async Result object.
+// Send runs a low level request in the database.
+// The description param is shown in the logger.
+// The req param is serialized in the body.
+// The purpose of this method is to be a fallback in case the user wants to do
+// something which is not implemented in the requests.go file.
 func (db *DB) Send(description, method, path string, req interface{}) ([]byte, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -95,15 +108,7 @@ func (db *DB) Send(description, method, path string, req interface{}) ([]byte, e
 	return db.syncResult(NewResult(c)), nil
 }
 
-// Runnable defines queries runnable by the "runQuery" method.
-type Runnable interface {
-	description() string
-	generate() []byte
-	path() string
-	method() string
-}
-
-// runQuery executes a query at the path passed as argument.
+// send executes a request at the path passed as argument.
 // It returns a channel where the extracted content of each batch is returned.
 func (db *DB) send(description, method, path string, body []byte) (chan interface{}, error) {
 	in := make(chan interface{}, 16)
@@ -148,7 +153,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	if len(result.Content) != 0 {
 		in <- result.Content
 	} else {
-		in <- rawResult
+		in <- json.RawMessage(rawResult)
 	}
 
 	if result.HasMore {
@@ -189,11 +194,21 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	}
 }
 
-// syncResult	synchronise the async result and return a JSON array of all elements
+// syncResult	synchronises the async result and returns all elements
 // of every batch returned by the database.
 func (db *DB) syncResult(async *Result) []byte {
-	result := []byte{'['}
 	r := async.Buffer()
+	async.HasMore()
+
+	// If the result isn't a JSON array, we only returns the first batch.
+	if r.Bytes()[0] != '[' {
+		return r.Bytes()
+	}
+
+	// If the result is a JSON array, we try to concatenate them all.
+	result := []byte{'['}
+	result = append(result, r.Bytes()[1:r.Len()-1]...)
+	result = append(result, ',')
 
 	for async.HasMore() {
 		if r.Len() == 0 {

@@ -19,11 +19,11 @@ func TestLogger(t *testing.T) {
 	in := make(chan interface{}, 2)
 	out := make(chan interface{}, 2)
 
-	logger.LogBegin("TEST", "http://test.fr", []byte("QUERY"))
+	logger.LogBegin("TEST", "POST", "http://test.fr", []byte("QUERY"))
 	r.Empty(output.String())
 	output.Reset()
 
-	go logger.LogResult(&result{}, time.Now(), in, out)
+	go logger.LogResult(false, time.Now(), in, out)
 	in <- json.RawMessage("Hello world !")
 	in <- nil
 	<-out
@@ -37,13 +37,13 @@ func TestLogger(t *testing.T) {
 
 	logger.Options(true, false, false)
 
-	logger.LogBegin("TEST", "http://test.fr", []byte(`{"foo":"bar"}`))
+	logger.LogBegin("TEST", "POST", "http://test.fr", []byte(`{"foo":"bar"}`))
 	r.Contains(output.String(), "TEST")
 	r.Contains(output.String(), "http://test.fr")
 	r.NotContains(output.String(), "foo")
 	output.Reset()
 
-	go logger.LogResult(&result{}, time.Now(), in, out)
+	go logger.LogResult(true, time.Now(), in, out)
 	in <- json.RawMessage{}
 	in <- nil
 	<-out
@@ -57,13 +57,13 @@ func TestLogger(t *testing.T) {
 
 	logger.Options(true, true, true)
 
-	logger.LogBegin("TEST", "http://test.fr", []byte(`{"foo":"bar"}`))
+	logger.LogBegin("TEST", "POST", "http://test.fr", []byte(`{"foo":"bar"}`))
 	r.Contains(output.String(), "TEST")
 	r.Contains(output.String(), "http://test.fr")
 	r.Contains(output.String(), "foo")
 	output.Reset()
 
-	go logger.LogResult(&result{Cached: true, Content: json.RawMessage(`{"foo":"bar"}`)}, time.Now(), in, out)
+	go logger.LogResult(false, time.Now(), in, out)
 	in <- json.RawMessage(`{"foo":"bar"}`)
 	in <- json.RawMessage{}
 	in <- nil

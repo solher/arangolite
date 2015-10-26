@@ -52,12 +52,6 @@ func (l *logger) LogResult(cached bool, start time.Time, in, out chan interface{
 		out <- tmp
 
 		switch t := tmp.(type) {
-		case []byte:
-			batchNb++
-			if batchNb == 1 {
-				firstBatch = t
-			}
-			continue
 		case json.RawMessage:
 			batchNb++
 			if batchNb == 1 {
