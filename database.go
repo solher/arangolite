@@ -34,7 +34,19 @@ func (db *DB) Connect(url, database, username, password string) *DB {
 	db.database = database
 	db.username = username
 	db.password = password
+	return db
+}
 
+// SwitchDatabase change the current database.
+func (db *DB) SwitchDatabase(database string) *DB {
+	db.database = database
+	return db
+}
+
+// SwitchUser change the current user.
+func (db *DB) SwitchUser(username, password string) *DB {
+	db.username = username
+	db.password = password
 	return db
 }
 
@@ -121,10 +133,10 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	}
 
 	rawResult, _ := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 
 	result := &result{}
-	json.Unmarshal(body, rawResult)
-	r.Body.Close()
+	json.Unmarshal(rawResult, result)
 
 	if result.Error {
 		db.l.LogError(result.ErrorMessage, start)
