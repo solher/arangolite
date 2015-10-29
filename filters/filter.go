@@ -1,8 +1,8 @@
 package filters
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 )
 
 // Filter defines a way of filtering AQL queries.
@@ -40,19 +40,22 @@ func ToAQL(tmpVar string, f *Filter) (string, error) {
 		return "", err
 	}
 
-	var aqlFilter string
+	aqlFilter := bytes.NewBuffer(nil)
 
-	if len(filter.OffsetLimit) != 0 {
-		aqlFilter = fmt.Sprintf("LIMIT %s", filter.OffsetLimit)
+	if len(filter.Where) != 0 {
+		aqlFilter.WriteString("FILTER ")
+		aqlFilter.WriteString(filter.Where)
 	}
 
 	if len(filter.Sort) != 0 {
-		aqlFilter = fmt.Sprintf("%s SORT %s", aqlFilter, filter.Sort)
+		aqlFilter.WriteString(" SORT ")
+		aqlFilter.WriteString(filter.Sort)
 	}
 
-	if len(filter.Where) != 0 {
-		aqlFilter = fmt.Sprintf("%s FILTER %s", aqlFilter, filter.Where)
+	if len(filter.OffsetLimit) != 0 {
+		aqlFilter.WriteString(" LIMIT ")
+		aqlFilter.WriteString(filter.OffsetLimit)
 	}
 
-	return aqlFilter, nil
+	return aqlFilter.String(), nil
 }
