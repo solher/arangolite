@@ -169,6 +169,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 // and follow while more batches are available.
 func (db *DB) followCursor(url string, c chan interface{}) {
 	req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
+	req.SetBasicAuth(db.username, db.password)
 
 	r, err := db.conn.Do(req)
 	if err != nil {
