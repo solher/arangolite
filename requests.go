@@ -144,7 +144,7 @@ func (r *CreateHashIndex) description() string {
 }
 
 func (r *CreateHashIndex) path() string {
-	return "/_api/index?collection-name=" + r.CollectionName
+	return "/_api/index?collection=" + r.CollectionName
 }
 
 func (r *CreateHashIndex) method() string {
