@@ -41,9 +41,9 @@ func main() {
 		},
 	})
 
-  _, _ := db.Run(&arangolite.CreateCollection{Name: "nodes"})
-
   db.SwitchDatabase("testDB").SwitchUser("user", "password")
+
+  _, _ := db.Run(&arangolite.CreateCollection{Name: "nodes"})
 
   key := "48765564346"
 
