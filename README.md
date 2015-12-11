@@ -70,7 +70,7 @@ func main() {
 
   for async.HasMore() {
     batch := []Node{}
-    decoder.Decode(batch)
+    decoder.Decode(&batch)
     nodes = append(nodes, batch...)
   }
 
