@@ -20,7 +20,7 @@ const shortQuery = `
             RETURN m
         )
     }
-  `
+`
 
 // TestQueryRun runs tests on the Query Run method.
 func TestQueryRun(t *testing.T) {
@@ -57,6 +57,18 @@ func TestQueryRun(t *testing.T) {
 	result, err = db.Run(NewQuery(""))
 	r.NoError(err)
 	a.Equal("[{},{}]", string(result))
+
+	q := NewQuery(`
+	    FOR d
+	    IN documents
+	    FILTER d._key == @key
+	    RETURN d
+	    `)
+	q.Bind("key", 1000)
+	result, err = db.Run(q)
+
+	r.NoError(err)
+	a.Equal("[{}]", string(result))
 
 	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
 		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
