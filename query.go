@@ -9,6 +9,7 @@ import (
 // Query represents an AQL query.
 type Query struct {
 	aql       string
+	bindVars  map[string]interface{}
 	cache     *bool
 	batchSize int
 }
@@ -35,6 +36,16 @@ func (q *Query) BatchSize(size int) *Query {
 	return q
 }
 
+// Bind sets the name and value of a bind parameter
+// Binding parameters prevents AQL injection
+func (q *Query) Bind(name string, value interface{}) *Query {
+	if q.bindVars == nil {
+		q.bindVars = make(map[string]interface{})
+	}
+	q.bindVars[name] = value
+	return q
+}
+
 func (q *Query) description() string {
 	return "QUERY"
 }
@@ -49,12 +60,13 @@ func (q *Query) method() string {
 
 func (q *Query) generate() []byte {
 	type QueryFmt struct {
-		Query     string `json:"query"`
-		Cache     *bool  `json:"cache,omitempty"`
-		BatchSize int    `json:"batchSize,omitempty"`
+		Query     string                 `json:"query"`
+		BindVars  map[string]interface{} `json:"bindVars,omitempty"`
+		Cache     *bool                  `json:"cache,omitempty"`
+		BatchSize int                    `json:"batchSize,omitempty"`
 	}
 
-	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, Cache: q.cache, BatchSize: q.batchSize})
+	jsonQuery, _ := json.Marshal(&QueryFmt{Query: q.aql, BindVars: q.bindVars, Cache: q.cache, BatchSize: q.batchSize})
 
 	return jsonQuery
 }
