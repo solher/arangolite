@@ -3,6 +3,7 @@ package arangolite
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -12,6 +13,7 @@ type Transaction struct {
 	resultVars        []string
 	queries           []Query
 	returnVar         string
+	bindVars          map[string]interface{}
 }
 
 // NewTransaction returns a new Transaction object.
@@ -38,6 +40,23 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Transaction {
 	t.resultVars = append(t.resultVars, resultVar)
 	t.queries = append(t.queries, *NewQuery(toES6Template(aql), params...))
+	return t
+}
+
+// Bind sets the name and value of a bind parameter
+// Binding parameters prevents AQL injection
+// The bind parameters must be delimited using the Go templating convention.
+// Example:
+// transaction := arangolite.NewTransaction([]string{}, []string{}).
+// 		AddQuery("var1", "FOR d IN nodes FILTER d._key == {{.key}} RETURN d._id").
+// 		AddQuery("var2", "FOR n IN nodes FILTER n._id == {{.var1}}[0] RETURN n._key").Return("var2")
+// transaction.Bind("key", 123)
+//
+func (t *Transaction) Bind(name string, value interface{}) *Transaction {
+	if t.bindVars == nil {
+		t.bindVars = make(map[string]interface{})
+	}
+	t.bindVars[name] = value
 	return t
 }
 
@@ -72,20 +91,18 @@ func (t *Transaction) generate() []byte {
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
-	jsFunc := bytes.NewBufferString("function () {var db = require(`internal`).db; ")
+	jsFunc := bytes.NewBufferString("function () { var db = require(`internal`).db; ")
+
+	for name, value := range t.bindVars {
+		jsFunc.WriteString("var ")
+		jsFunc.WriteString(name)
+		jsFunc.WriteString(" = '")
+		jsFunc.WriteString(fmt.Sprint(value))
+		jsFunc.WriteString("'; ")
+	}
 
 	for i, query := range t.queries {
-		varName := t.resultVars[i]
-
-		if len(varName) > 0 {
-			jsFunc.WriteString("var ")
-			jsFunc.WriteString(varName)
-			jsFunc.WriteString(" = ")
-		}
-
-		jsFunc.WriteString("db._query(aqlQuery`")
-		jsFunc.WriteString(query.aql)
-		jsFunc.WriteString("`).toArray(); ")
+		writeQuery(jsFunc, query.aql, t.resultVars[i])
 	}
 
 	if len(t.returnVar) > 0 {
@@ -100,6 +117,23 @@ func (t *Transaction) generate() []byte {
 	jsonTransaction, _ := json.Marshal(transactionFmt)
 
 	return jsonTransaction
+}
+
+// writeQuery translate a given aql query to bytes
+// buff the buffer containing the resulting bytes
+// aql the AQL query
+// resultVarName the name of the variable that will accept the query result, if any - may be empty
+func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
+
+	if len(resultVarName) > 0 {
+		buff.WriteString("var ")
+		buff.WriteString(resultVarName)
+		buff.WriteString(" = ")
+	}
+
+	buff.WriteString("db._query(aqlQuery`")
+	buff.WriteString(aql)
+	buff.WriteString("`).toArray(); ")
 }
 
 func toES6Template(query string) string {
