@@ -141,6 +141,52 @@ func main() {
 }
 ```
 
+## Graphs
+### Overview
+AQL may be used for querying graph data. But to manage graphs, aroangolite offers a few specific requests:
+* CreateGraph to create a graph
+* ListGraphs to list available graphs
+* GetGraph to get an existing graph
+* DropGraph to delete a graph
+
+### Usage
+```go
+  db.Run(&arangolite.CreateCollection{Name: "CollectionName"})
+  db.Run(&arangolite.CreateCollection{Name: "RelationshipCollectionName", Type: 3})
+
+  // check graph existence
+  _, err := db.Run(&arangolite.GetGraph{Name: "GraphName"})
+
+  // if graph does not exist, create a new one
+  if err != nil {
+    from := make([]string, 1)
+    from[0] = "FirstCollectionName"
+    to := make([]string, 1)
+    to[0] = "SecondCollectionName"
+
+    edgeDefinition := arangolite.EdgeDefinition{Collection: "EdgeCollectionName", From: from, To: to}
+    edgeDefinitions := make([]arangolite.EdgeDefinition, 1)
+    edgeDefinitions[0] = edgeDefinition
+    db.Run(&arangolite.CreateGraph{Name: "GraphName", EdgeDefinitions: edgeDefinitions})
+  }
+
+  // grab the graph
+  graphBytes, _ := config.DB().Run(&arangolite.GetGraph{Name: "GraphName"})
+  graph := &arangolite.GraphData{}
+  json.Unmarshal(graphBytes, &graph)
+  fmt.Printf("Graph: %+v", graph)
+
+  // list existing graphs
+  listBytes, _ :=  db.Run(&arangolite.ListGraphs{})
+  list := &arangolite.GraphList{}
+  json.Unmarshal(listBytes, &list)
+  fmt.Printf("Graph list: %+v", list)
+
+  // destroy the graph we just created, and the related collections
+  db.Run(&arangolite.DropGraph{Name: "GraphName", DropCollections: true})
+
+```
+
 ## Filters
 ### Overview
 
