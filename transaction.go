@@ -3,7 +3,6 @@ package arangolite
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ type Transaction struct {
 	resultVars        []string
 	queries           []Query
 	returnVar         string
-	bindVars          map[string]interface{}
+	bindVars          map[string]string
 }
 
 // NewTransaction returns a new Transaction object.
@@ -53,9 +52,10 @@ func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Tr
 //
 func (t *Transaction) Bind(name string, value interface{}) *Transaction {
 	if t.bindVars == nil {
-		t.bindVars = make(map[string]interface{})
+		t.bindVars = make(map[string]string)
 	}
-	t.bindVars[name] = value
+	m, _ := json.Marshal(value)
+	t.bindVars[name] = strings.Replace(string(m), `"`, "`", -1)
 	return t
 }
 
@@ -95,9 +95,9 @@ func (t *Transaction) generate() []byte {
 	for name, value := range t.bindVars {
 		jsFunc.WriteString("var ")
 		jsFunc.WriteString(name)
-		jsFunc.WriteString(" = '")
-		jsFunc.WriteString(fmt.Sprint(value))
-		jsFunc.WriteString("'; ")
+		jsFunc.WriteString(" = ")
+		jsFunc.WriteString(value)
+		jsFunc.WriteString("; ")
 	}
 
 	hasParams := len(t.bindVars) > 0
