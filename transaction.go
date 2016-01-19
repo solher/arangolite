@@ -45,10 +45,9 @@ func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Tr
 
 // Bind sets the name and value of a bind parameter
 // Binding parameters prevents AQL injection
-// The bind parameters must be delimited using the Go templating convention.
 // Example:
 // transaction := arangolite.NewTransaction([]string{}, []string{}).
-// 		AddQuery("var1", "FOR d IN nodes FILTER d._key == {{.key}} RETURN d._id").
+// 		AddQuery("var1", "FOR d IN nodes FILTER d._key == @key RETURN d._id").
 // 		AddQuery("var2", "FOR n IN nodes FILTER n._id == {{.var1}}[0] RETURN n._key").Return("var2")
 // transaction.Bind("key", 123)
 //
@@ -101,6 +100,18 @@ func (t *Transaction) generate() []byte {
 		jsFunc.WriteString("'; ")
 	}
 
+	jsFunc.WriteString("var params = {")
+	for name := range t.bindVars {
+		jsFunc.WriteString(name)
+		jsFunc.WriteString(": ")
+		jsFunc.WriteString(name)
+		jsFunc.WriteString(", ")
+	}
+	if len(t.bindVars) > 0 {
+		jsFunc.Truncate(jsFunc.Len() - 2)
+	}
+	jsFunc.WriteString("}; ")
+
 	for i, query := range t.queries {
 		writeQuery(jsFunc, query.aql, t.resultVars[i])
 	}
@@ -124,7 +135,6 @@ func (t *Transaction) generate() []byte {
 // aql the AQL query
 // resultVarName the name of the variable that will accept the query result, if any - may be empty
 func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
-
 	if len(resultVarName) > 0 {
 		buff.WriteString("var ")
 		buff.WriteString(resultVarName)
@@ -133,7 +143,7 @@ func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
 
 	buff.WriteString("db._query(aqlQuery`")
 	buff.WriteString(aql)
-	buff.WriteString("`).toArray(); ")
+	buff.WriteString("`, params).toArray(); ")
 }
 
 func toES6Template(query string) string {
