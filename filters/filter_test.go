@@ -43,7 +43,7 @@ func TestToAQL(t *testing.T) {
 	aqlFilter, err := ToAQL("", filter)
 	r.NoError(err)
 	a.EqualValues(
-		`LIMIT 1, 2 SORT var.age DESC, var.money ASC FILTER var.age >= 18`,
+		`FILTER var.age >= 18 SORT var.age DESC, var.money ASC LIMIT 1, 2`,
 		aqlFilter)
 
 	aqlFilter, err = ToAQL("var", &Filter{})
