@@ -140,7 +140,7 @@ func toES6Template(query string) string {
 
 	for _, b := range query {
 		if lookingForEnd {
-			if b == ' ' || b == '\n' {
+			if b == ' ' || b == '\n' || b == ',' || b == ';' {
 				lookingForEnd = false
 				buf.WriteString("} ")
 				continue
