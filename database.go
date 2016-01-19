@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -131,9 +132,16 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
-	if r.StatusCode == http.StatusUnauthorized {
-		err = errors.New("unauthorized: invalid credentials")
+
+	if r.StatusCode < 200 || r.StatusCode > 299 {
+		err = errors.New("the database returned a " + strconv.Itoa(r.StatusCode))
+
+		if r.StatusCode == http.StatusUnauthorized {
+			err = errors.New("unauthorized: invalid credentials")
+		}
+
 		db.l.LogError(err.Error(), start)
+
 		return nil, err
 	}
 
