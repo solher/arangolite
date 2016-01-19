@@ -133,20 +133,23 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 		return nil, err
 	}
 
-	if r.StatusCode < 200 || r.StatusCode > 299 {
+	rawResult, _ := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+
+	if (r.StatusCode < 200 || r.StatusCode > 299) && len(rawResult) == 0 {
 		err = errors.New("the database returned a " + strconv.Itoa(r.StatusCode))
 
-		if r.StatusCode == http.StatusUnauthorized {
+		switch r.StatusCode {
+		case http.StatusUnauthorized:
 			err = errors.New("unauthorized: invalid credentials")
+		case http.StatusTemporaryRedirect:
+			err = errors.New("the database returned a 307 to " + r.Header.Get("Location"))
 		}
 
 		db.l.LogError(err.Error(), start)
 
 		return nil, err
 	}
-
-	rawResult, _ := ioutil.ReadAll(r.Body)
-	r.Body.Close()
 
 	result := &result{}
 	json.Unmarshal(rawResult, result)
