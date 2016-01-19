@@ -90,7 +90,7 @@ func (t *Transaction) generate() []byte {
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
-	jsFunc := bytes.NewBufferString("function () { var db = require(`internal`).db; ")
+	jsFunc := bytes.NewBufferString("function () { var db = require('internal').db; ")
 
 	for name, value := range t.bindVars {
 		jsFunc.WriteString("var ")
@@ -100,22 +100,8 @@ func (t *Transaction) generate() []byte {
 		jsFunc.WriteString("; ")
 	}
 
-	hasParams := len(t.bindVars) > 0
-
-	if hasParams {
-		jsFunc.WriteString("var params = {")
-		for name := range t.bindVars {
-			jsFunc.WriteString(name)
-			jsFunc.WriteString(": ")
-			jsFunc.WriteString(name)
-			jsFunc.WriteString(", ")
-		}
-		jsFunc.Truncate(jsFunc.Len() - 2)
-		jsFunc.WriteString("}; ")
-	}
-
 	for i, query := range t.queries {
-		writeQuery(jsFunc, query.aql, hasParams, t.resultVars[i])
+		writeQuery(jsFunc, query.aql, t.resultVars[i])
 	}
 
 	if len(t.returnVar) > 0 {
@@ -136,7 +122,7 @@ func (t *Transaction) generate() []byte {
 // buff the buffer containing the resulting bytes
 // aql the AQL query
 // resultVarName the name of the variable that will accept the query result, if any - may be empty
-func writeQuery(buff *bytes.Buffer, aql string, hasParams bool, resultVarName string) {
+func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
 	if len(resultVarName) > 0 {
 		buff.WriteString("var ")
 		buff.WriteString(resultVarName)
@@ -145,14 +131,33 @@ func writeQuery(buff *bytes.Buffer, aql string, hasParams bool, resultVarName st
 
 	buff.WriteString("db._query(aqlQuery`")
 	buff.WriteString(aql)
-	if hasParams {
-		buff.WriteString("`, params).toArray(); ")
-	} else {
-		buff.WriteString("`).toArray(); ")
-	}
+	buff.WriteString("`).toArray(); ")
 }
 
 func toES6Template(query string) string {
+	buf := bytes.NewBuffer(nil)
+	lookingForEnd := false
+
+	for _, b := range query {
+		if lookingForEnd {
+			if b == ' ' || b == '\n' {
+				lookingForEnd = false
+				buf.WriteString("} ")
+				continue
+			}
+		} else {
+			if b == '@' {
+				lookingForEnd = true
+				buf.WriteString("${")
+				continue
+			}
+		}
+
+		buf.WriteRune(b)
+	}
+
+	query = buf.String()
+
 	query = strings.Replace(query, "{{.", "${", -1)
 	return strings.Replace(query, "}}", "}", -1)
 }

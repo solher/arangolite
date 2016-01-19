@@ -33,19 +33,19 @@ func TestTransactionRun(t *testing.T) {
 
 	result, err = db.Run(NewTransaction(nil, nil))
 	r.NoError(err)
-	a.Equal("{\"collections\":{\"read\":[],\"write\":[]},\"action\":\"function () { var db = require(`internal`).db; }\"}", string(result))
+	a.Equal("{\"collections\":{\"read\":[],\"write\":[]},\"action\":\"function () { var db = require('internal').db; }\"}", string(result))
 
 	result, err = db.Run(NewTransaction([]string{"foo"}, []string{"bar"}).
 		AddQuery("", "FOR c IN customer RETURN c"))
 	r.NoError(err)
-	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require(`internal`).db; db._query(aqlQuery`FOR c IN customer RETURN c`).toArray(); }\"}", string(result))
+	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require('internal').db; db._query(aqlQuery`FOR c IN customer RETURN c`).toArray(); }\"}", string(result))
 
 	result, err = db.Run(NewTransaction([]string{"foo"}, []string{"bar"}).
 		AddQuery("var1", "FOR c IN customer RETURN c").
 		AddQuery("var2", "FOR c IN {{.var1}} RETURN c").
 		Return("var1"))
 	r.NoError(err)
-	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require(`internal`).db; var var1 = db._query(aqlQuery`FOR c IN customer RETURN c`).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`).toArray(); return var1;}\"}", string(result))
+	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require('internal').db; var var1 = db._query(aqlQuery`FOR c IN customer RETURN c`).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`).toArray(); return var1;}\"}", string(result))
 
 	transaction := NewTransaction([]string{"foo"}, []string{"bar"}).
 		AddQuery("var1", "FOR c IN customer FILTER c._key == {{.key}} RETURN c").
@@ -55,7 +55,7 @@ func TestTransactionRun(t *testing.T) {
 	result, err = db.Run(transaction)
 
 	r.NoError(err)
-	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require(`internal`).db; var key = 123; var params = {key: key}; var var1 = db._query(aqlQuery`FOR c IN customer FILTER c._key == ${key} RETURN c`, params).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`, params).toArray(); return var2;}\"}", string(result))
+	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require('internal').db; var key = 123; var var1 = db._query(aqlQuery`FOR c IN customer FILTER c._key == ${key} RETURN c`).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`).toArray(); return var2;}\"}", string(result))
 
 	transaction = NewTransaction([]string{"foo"}, []string{"bar"}).
 		AddQuery("var1", "FOR c IN customer FILTER c._key == @key RETURN c").
@@ -65,7 +65,7 @@ func TestTransactionRun(t *testing.T) {
 	result, err = db.Run(transaction)
 
 	r.NoError(err)
-	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require(`internal`).db; var key = '123'; var params = {key: key}; var var1 = db._query(aqlQuery`FOR c IN customer FILTER c._key == @key RETURN c`, params).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`, params).toArray(); return var2;}\"}", string(result))
+	a.Equal("{\"collections\":{\"read\":[\"foo\"],\"write\":[\"bar\"]},\"action\":\"function () { var db = require('internal').db; var key = '123'; var var1 = db._query(aqlQuery`FOR c IN customer FILTER c._key == ${key} RETURN c`).toArray(); var var2 = db._query(aqlQuery`FOR c IN ${var1} RETURN c`).toArray(); return var2;}\"}", string(result))
 
 	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/transaction",
 		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
