@@ -41,19 +41,19 @@ type CreateGraph struct {
 	OrphanCollections []string         `json:"orphanCollections",omitempty`
 }
 
-func (c *CreateGraph) description() string {
+func (c *CreateGraph) Description() string {
 	return "CREATE GRAPH"
 }
 
-func (c *CreateGraph) path() string {
+func (c *CreateGraph) Path() string {
 	return "/_api/gharial"
 }
 
-func (c *CreateGraph) method() string {
+func (c *CreateGraph) Method() string {
 	return "POST"
 }
 
-func (c *CreateGraph) generate() []byte {
+func (c *CreateGraph) Generate() []byte {
 	m, _ := json.Marshal(c)
 	return m
 }
@@ -63,38 +63,38 @@ type GetGraph struct {
 	Name string
 }
 
-func (g *GetGraph) description() string {
+func (g *GetGraph) Description() string {
 	return "GET GRAPH"
 }
 
-func (g *GetGraph) path() string {
+func (g *GetGraph) Path() string {
 	return "/_api/gharial/" + g.Name
 }
 
-func (g *GetGraph) method() string {
+func (g *GetGraph) Method() string {
 	return "GET"
 }
 
-func (g *GetGraph) generate() []byte {
+func (g *GetGraph) Generate() []byte {
 	return nil
 }
 
 // ListGraph lists all graphs known by the graph module.
 type ListGraphs struct{}
 
-func (l *ListGraphs) description() string {
+func (l *ListGraphs) Description() string {
 	return "LIST GRAPHS"
 }
 
-func (l *ListGraphs) path() string {
+func (l *ListGraphs) Path() string {
 	return "/_api/gharial/"
 }
 
-func (l *ListGraphs) method() string {
+func (l *ListGraphs) Method() string {
 	return "GET"
 }
 
-func (l *ListGraphs) generate() []byte {
+func (l *ListGraphs) Generate() []byte {
 	return nil
 }
 
@@ -104,11 +104,11 @@ type DropGraph struct {
 	DropCollections bool
 }
 
-func (d *DropGraph) description() string {
+func (d *DropGraph) Description() string {
 	return "DROP GRAPH"
 }
 
-func (d *DropGraph) path() string {
+func (d *DropGraph) Path() string {
 	var queryParameters string
 
 	if d.DropCollections {
@@ -118,10 +118,10 @@ func (d *DropGraph) path() string {
 	return "/_api/gharial/" + d.Name + queryParameters
 }
 
-func (d *DropGraph) method() string {
+func (d *DropGraph) Method() string {
 	return "DELETE"
 }
 
-func (d *DropGraph) generate() []byte {
+func (d *DropGraph) Generate() []byte {
 	return nil
 }

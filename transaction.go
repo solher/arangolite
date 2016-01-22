@@ -65,19 +65,19 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 	return t
 }
 
-func (t *Transaction) description() string {
+func (t *Transaction) Description() string {
 	return "TRANSACTION"
 }
 
-func (t *Transaction) path() string {
+func (t *Transaction) Path() string {
 	return "/_api/transaction"
 }
 
-func (t *Transaction) method() string {
+func (t *Transaction) Method() string {
 	return "POST"
 }
 
-func (t *Transaction) generate() []byte {
+func (t *Transaction) Generate() []byte {
 	type TransactionFmt struct {
 		Collections struct {
 			Read  []string `json:"read"`

@@ -54,10 +54,10 @@ func (db *DB) SwitchUser(username, password string) *DB {
 // Runnable defines requests runnable by the Run and RunAsync methods.
 // Queries, transactions and everything in the requests.go file are Runnable.
 type Runnable interface {
-	description() string // Description shown in the logger
-	generate() []byte    // The body of the request
-	path() string        // The path where to send the request
-	method() string      // The HTTP method to use
+	Description() string // Description shown in the logger
+	Generate() []byte    // The body of the request
+	Path() string        // The path where to send the request
+	Method() string      // The HTTP method to use
 }
 
 // Run runs the Runnable synchronously and returns the JSON array of all elements
@@ -81,7 +81,7 @@ func (db *DB) RunAsync(q Runnable) (*Result, error) {
 		return NewResult(nil), nil
 	}
 
-	c, err := db.send(q.description(), q.method(), q.path(), q.generate())
+	c, err := db.send(q.Description(), q.Method(), q.Path(), q.Generate())
 
 	if err != nil {
 		return nil, err

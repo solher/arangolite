@@ -314,14 +314,14 @@ func (db *DB) Send(description, method, path string, req interface{}) ([]byte, e
 // Runnable defines requests runnable by the Run and RunAsync methods.
 // Queries, transactions and everything in the requests.go file are Runnable.
 type Runnable interface {
-	description() string // Description shown in the logger
-	generate() []byte // The body of the request
-	path() string // The path where to send the request
-	method() string // The HTTP method to use
+	Description() string // Description shown in the logger
+	Generate() []byte // The body of the request
+	Path() string // The path where to send the request
+	Method() string // The HTTP method to use
 }
 ```
 
-**Please pull request in the requests.go file when you implement some new features so everybody can use it.**
+**Please pull request when you implement some new features so everybody can use it.**
 
 ## License
 

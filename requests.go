@@ -14,19 +14,19 @@ type CreateDatabase struct {
 	Users    []map[string]interface{} `json:"users,omitempty"`
 }
 
-func (r *CreateDatabase) description() string {
+func (r *CreateDatabase) Description() string {
 	return "CREATE DATABASE"
 }
 
-func (r *CreateDatabase) path() string {
+func (r *CreateDatabase) Path() string {
 	return "/_api/database"
 }
 
-func (r *CreateDatabase) method() string {
+func (r *CreateDatabase) Method() string {
 	return "POST"
 }
 
-func (r *CreateDatabase) generate() []byte {
+func (r *CreateDatabase) Generate() []byte {
 	m, _ := json.Marshal(r)
 	return m
 }
@@ -36,19 +36,19 @@ type DropDatabase struct {
 	Name string
 }
 
-func (r *DropDatabase) description() string {
+func (r *DropDatabase) Description() string {
 	return "DROP DATABASE"
 }
 
-func (r *DropDatabase) path() string {
+func (r *DropDatabase) Path() string {
 	return "/_api/database/" + r.Name
 }
 
-func (r *DropDatabase) method() string {
+func (r *DropDatabase) Method() string {
 	return "DELETE"
 }
 
-func (r *DropDatabase) generate() []byte {
+func (r *DropDatabase) Generate() []byte {
 	return nil
 }
 
@@ -69,19 +69,19 @@ type CreateCollection struct {
 	IndexBuckets   int                    `json:"indexBuckets,omitempty"`
 }
 
-func (r *CreateCollection) description() string {
+func (r *CreateCollection) Description() string {
 	return "CREATE COLLECTION"
 }
 
-func (r *CreateCollection) path() string {
+func (r *CreateCollection) Path() string {
 	return "/_api/collection"
 }
 
-func (r *CreateCollection) method() string {
+func (r *CreateCollection) Method() string {
 	return "POST"
 }
 
-func (r *CreateCollection) generate() []byte {
+func (r *CreateCollection) Generate() []byte {
 	m, _ := json.Marshal(r)
 	return m
 }
@@ -91,19 +91,19 @@ type DropCollection struct {
 	Name string
 }
 
-func (r *DropCollection) description() string {
+func (r *DropCollection) Description() string {
 	return "DROP COLLECTION"
 }
 
-func (r *DropCollection) path() string {
+func (r *DropCollection) Path() string {
 	return "/_api/collection/" + r.Name
 }
 
-func (r *DropCollection) method() string {
+func (r *DropCollection) Method() string {
 	return "DELETE"
 }
 
-func (r *DropCollection) generate() []byte {
+func (r *DropCollection) Generate() []byte {
 	return nil
 }
 
@@ -112,19 +112,19 @@ type TruncateCollection struct {
 	Name string
 }
 
-func (r *TruncateCollection) description() string {
+func (r *TruncateCollection) Description() string {
 	return "TRUNCATE COLLECTION"
 }
 
-func (r *TruncateCollection) path() string {
+func (r *TruncateCollection) Path() string {
 	return "/_api/collection/" + r.Name + "/truncate"
 }
 
-func (r *TruncateCollection) method() string {
+func (r *TruncateCollection) Method() string {
 	return "PUT"
 }
 
-func (r *TruncateCollection) generate() []byte {
+func (r *TruncateCollection) Generate() []byte {
 	return nil
 }
 
@@ -139,19 +139,19 @@ type CreateHashIndex struct {
 	Sparse         *bool    `json:"sparse,omitempty"`
 }
 
-func (r *CreateHashIndex) description() string {
+func (r *CreateHashIndex) Description() string {
 	return "CREATE HASH INDEX"
 }
 
-func (r *CreateHashIndex) path() string {
+func (r *CreateHashIndex) Path() string {
 	return "/_api/index?collection=" + r.CollectionName
 }
 
-func (r *CreateHashIndex) method() string {
+func (r *CreateHashIndex) Method() string {
 	return "POST"
 }
 
-func (r *CreateHashIndex) generate() []byte {
+func (r *CreateHashIndex) Generate() []byte {
 	r.Type = "hash"
 	m, _ := json.Marshal(r)
 	return m
@@ -165,19 +165,19 @@ type SetCacheProperties struct {
 	MaxResults int    `json:"maxResults,omitempty"`
 }
 
-func (r *SetCacheProperties) description() string {
+func (r *SetCacheProperties) Description() string {
 	return "SET CACHE PROPERTIES"
 }
 
-func (r *SetCacheProperties) path() string {
+func (r *SetCacheProperties) Path() string {
 	return "/_api/query-cache/properties"
 }
 
-func (r *SetCacheProperties) method() string {
+func (r *SetCacheProperties) Method() string {
 	return "PUT"
 }
 
-func (r *SetCacheProperties) generate() []byte {
+func (r *SetCacheProperties) Generate() []byte {
 	m, _ := json.Marshal(r)
 	return m
 }
@@ -185,18 +185,18 @@ func (r *SetCacheProperties) generate() []byte {
 // GetCacheProperties retrieves the current query cache properties.
 type GetCacheProperties struct{}
 
-func (r *GetCacheProperties) description() string {
+func (r *GetCacheProperties) Description() string {
 	return "GET CACHE PROPERTIES"
 }
 
-func (r *GetCacheProperties) path() string {
+func (r *GetCacheProperties) Path() string {
 	return "/_api/query-cache/properties"
 }
 
-func (r *GetCacheProperties) method() string {
+func (r *GetCacheProperties) Method() string {
 	return "GET"
 }
 
-func (r *GetCacheProperties) generate() []byte {
+func (r *GetCacheProperties) Generate() []byte {
 	return nil
 }

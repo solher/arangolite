@@ -46,19 +46,19 @@ func (q *Query) Bind(name string, value interface{}) *Query {
 	return q
 }
 
-func (q *Query) description() string {
+func (q *Query) Description() string {
 	return "QUERY"
 }
 
-func (q *Query) path() string {
+func (q *Query) Path() string {
 	return "/_api/cursor"
 }
 
-func (q *Query) method() string {
+func (q *Query) Method() string {
 	return "POST"
 }
 
-func (q *Query) generate() []byte {
+func (q *Query) Generate() []byte {
 	type QueryFmt struct {
 		Query     string                 `json:"query"`
 		BindVars  map[string]interface{} `json:"bindVars,omitempty"`
