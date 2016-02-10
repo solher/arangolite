@@ -23,13 +23,7 @@ type DB struct {
 
 // New returns a new DB object.
 func New() *DB {
-	c := &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 100,
-		},
-	}
-
-	return &DB{conn: c, l: newLogger()}
+	return &DB{conn: &http.Client{}, l: newLogger()}
 }
 
 // LoggerOptions sets the Arangolite logger options.
