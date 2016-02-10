@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
+	"syscall"
 	"time"
 )
 
@@ -127,8 +129,31 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 
 	req.SetBasicAuth(db.username, db.password)
 
-	r, err := db.conn.Do(req)
+	var r *http.Response
+
+	for {
+		r, err = db.conn.Do(req)
+
+		if err != nil {
+			if r != nil {
+				_, _ = ioutil.ReadAll(r.Body)
+				r.Body.Close()
+			}
+
+			if strings.Contains(err.Error(), syscall.ECONNRESET.Error()) {
+				continue
+			}
+		}
+
+		break
+	}
+
 	if err != nil {
+		if r != nil {
+			_, _ = ioutil.ReadAll(r.Body)
+			r.Body.Close()
+		}
+
 		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
