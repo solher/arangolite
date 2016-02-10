@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -22,7 +23,13 @@ type DB struct {
 
 // New returns a new DB object.
 func New() *DB {
-	return &DB{conn: &http.Client{}, l: newLogger()}
+	c := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 100,
+		},
+	}
+
+	return &DB{conn: c, l: newLogger()}
 }
 
 // LoggerOptions sets the Arangolite logger options.
@@ -121,22 +128,26 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	db.l.LogBegin(description, method, fullURL, body)
 	start := time.Now()
 
-	req, err := http.NewRequest(method, fullURL, bytes.NewBuffer(body))
-	if err != nil {
-		db.l.LogError(err.Error(), start)
-		return nil, err
-	}
-
-	req.SetBasicAuth(db.username, db.password)
-
-	var r *http.Response
+	var (
+		r   *http.Response
+		err error
+	)
 
 	for {
+		var req *http.Request
+		req, err = http.NewRequest(method, fullURL, bytes.NewBuffer(body))
+		if err != nil {
+			db.l.LogError(err.Error(), start)
+			return nil, err
+		}
+
+		req.SetBasicAuth(db.username, db.password)
+
 		r, err = db.conn.Do(req)
 
 		if err != nil {
 			if r != nil {
-				_, _ = ioutil.ReadAll(r.Body)
+				io.Copy(ioutil.Discard, r.Body)
 				r.Body.Close()
 			}
 
@@ -150,7 +161,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 
 	if err != nil {
 		if r != nil {
-			_, _ = ioutil.ReadAll(r.Body)
+			io.Copy(ioutil.Discard, r.Body)
 			r.Body.Close()
 		}
 
@@ -159,6 +170,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	}
 
 	rawResult, _ := ioutil.ReadAll(r.Body)
+	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
 	if (r.StatusCode < 200 || r.StatusCode > 299) && len(rawResult) == 0 {
@@ -204,17 +216,46 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 // followCursor requests the cursor in database, put the result in the channel
 // and follow while more batches are available.
 func (db *DB) followCursor(url string, c chan interface{}) {
-	req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(nil))
-	req.SetBasicAuth(db.username, db.password)
+	var (
+		r   *http.Response
+		err error
+	)
 
-	r, err := db.conn.Do(req)
+	for {
+		var req *http.Request
+		req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(nil))
+
+		req.SetBasicAuth(db.username, db.password)
+
+		r, err = db.conn.Do(req)
+
+		if err != nil {
+			if r != nil {
+				io.Copy(ioutil.Discard, r.Body)
+				r.Body.Close()
+			}
+
+			if strings.Contains(err.Error(), syscall.ECONNRESET.Error()) {
+				continue
+			}
+		}
+
+		break
+	}
+
 	if err != nil {
+		if r != nil {
+			io.Copy(ioutil.Discard, r.Body)
+			r.Body.Close()
+		}
+
 		c <- err
 		return
 	}
 
 	result := &result{}
 	json.NewDecoder(r.Body).Decode(result)
+	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
 	if result.Error {
