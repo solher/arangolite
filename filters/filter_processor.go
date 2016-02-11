@@ -234,6 +234,25 @@ func (fp *filterProcessor) processUnaryCondition(buffer *bytes.Buffer, attribute
 				return err
 			}
 
+		case "like":
+			paramMap, err := fp.checkFunctionCondition(condition[key])
+			if err != nil {
+				return err
+			}
+
+			buffer.WriteString("LIKE(")
+			buffer.WriteString(fp.VarName)
+			buffer.WriteRune('.')
+			buffer.WriteString(paramMap["text"].(string))
+			buffer.WriteString(", ")
+			fp.writeQuotedString(buffer, paramMap["search"].(string))
+			buffer.WriteString(", ")
+			caseInsensitive, ok := paramMap["case_insensitive"]
+			if ok && caseInsensitive.(bool) {
+				buffer.WriteString("true")
+			}
+			buffer.WriteRune(')')
+
 		default:
 			if err := fp.processCondition(buffer, key, operator, eqAQL, condition[key]); err != nil {
 				return err
@@ -364,6 +383,16 @@ func (fp *filterProcessor) checkAndOrCondition(condition interface{}) ([]map[str
 	}
 
 	return mapArr, nil
+}
+
+func (fp *filterProcessor) checkFunctionCondition(condition interface{}) (map[string]interface{}, error) {
+	condType := reflect.TypeOf(condition)
+
+	if condType == reflect.TypeOf(map[string]interface{}{}) {
+		return condition.(map[string]interface{}), nil
+	}
+
+	return nil, fmt.Errorf("invalid condition, must be a map: %v", condition)
 }
 
 func (fp *filterProcessor) checkFilter(filter *Filter) error {
