@@ -229,6 +229,13 @@ JSON:
         {"birthPlace": ["Paris", "Los Angeles"]},
         {"age": {"gte": 18}}
       ]
+    },
+    {
+      "like": {
+        "text": "lastName",
+        "search": "R%",
+        "case_insensitive": true
+      }
     }
   ]
   },
@@ -240,7 +247,7 @@ AQL:
 ```
 LIMIT 1, 2
 SORT var.age DESC, var.money ASC
-FILTER var.firstName == 'Pierre' && (var.birthPlace IN ['Paris', 'Los Angeles'] || var.age >= 18)
+FILTER var.firstName == 'Pierre' && (var.birthPlace IN ['Paris', 'Los Angeles'] || var.age >= 18) && LIKE(var.lastName, 'R%', true)
 ```
 
 ### Operators
@@ -251,6 +258,7 @@ FILTER var.firstName == 'Pierre' && (var.birthPlace IN ['Paris', 'Los Angeles'] 
 - `gt`, `gte`: Numerical greater than (>); greater than or equal (>=).
 - `lt`, `lte`: Numerical less than (<); less than or equal (<=).
 - `eq`, `neq`: Equal (==); non equal (!=).
+- `like`: LIKE(text, search, case_insensitive) function support
 
 ### Usage
 
