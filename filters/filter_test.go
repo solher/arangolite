@@ -24,7 +24,7 @@ func TestFromJSON(t *testing.T) {
     "options": ["details"]}`)
 	r.NoError(err)
 	a.EqualValues(&Filter{Offset: 1, Limit: 2, Sort: []string{"age desc", "money"},
-		Options: []string{"details"}}, filter)
+		Options: []interface{}{"details"}}, filter)
 
 	filter, err = FromJSON(`{"where": [{"age": {"gte": 18}}]}`)
 	r.NoError(err)
