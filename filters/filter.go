@@ -11,7 +11,7 @@ type Filter struct {
 	Limit   int                      `json:"limit"`
 	Sort    []string                 `json:"sort"`
 	Where   []map[string]interface{} `json:"where"`
-	Options []interface{}            `json:"options"`
+	Options map[string]interface{}   `json:"options"`
 }
 
 type processedFilter struct {

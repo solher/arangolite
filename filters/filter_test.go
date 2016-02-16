@@ -21,10 +21,10 @@ func TestFromJSON(t *testing.T) {
 	a.EqualValues(&Filter{}, filter)
 
 	filter, err = FromJSON(`{"offset": 1, "limit": 2, "sort": ["age desc", "money"],
-    "options": ["details"]}`)
+    "options": {"details": true}}`)
 	r.NoError(err)
 	a.EqualValues(&Filter{Offset: 1, Limit: 2, Sort: []string{"age desc", "money"},
-		Options: []interface{}{"details"}}, filter)
+		Options: map[string]interface{}{"details": true}}, filter)
 
 	filter, err = FromJSON(`{"where": [{"age": {"gte": 18}}]}`)
 	r.NoError(err)
@@ -37,7 +37,7 @@ func TestToAQL(t *testing.T) {
 	r := require.New(t)
 
 	filter, err := FromJSON(`{"offset": 1, "limit": 2, "sort": ["age desc", "money"],
-    "where": [{"age": {"gte": 18}}], "options": ["details"]}`)
+    "where": [{"age": {"gte": 18}}], "options": {"details": true}}`)
 	r.NoError(err)
 
 	aqlFilter, err := ToAQL("", filter)
