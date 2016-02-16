@@ -71,6 +71,16 @@ var notWhereFilter = &Filter{
 	},
 }
 
+var likeWhereFilter = &Filter{
+	Where: []map[string]interface{}{{
+		"like": map[string]interface{}{
+			"text":             "firstName",
+			"search":           "fab%",
+			"case_insensitive": true,
+		},
+	}},
+}
+
 // TestProcessFilter runs tests on the filter processor Process method.
 func TestProcessFilter(t *testing.T) {
 	a := assert.New(t)
@@ -154,6 +164,10 @@ func TestProcessFilter(t *testing.T) {
 	for _, s := range split {
 		a.Contains(expected, s)
 	}
+
+	p, err = fp.Process(likeWhereFilter)
+	r.NoError(err)
+	a.Contains(`LIKE(var.firstName, 'fab%', true)`, p.Where)
 
 	p, err = fp.Process(&Filter{Where: []map[string]interface{}{{"var.firstName": []interface{}{"foo", map[string]interface{}{"foo": "bar"}}}}})
 	r.Error(err)
