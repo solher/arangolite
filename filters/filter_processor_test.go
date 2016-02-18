@@ -101,12 +101,12 @@ func TestProcessFilter(t *testing.T) {
 	a.Equal("3, 4", p.OffsetLimit)
 
 	p, err = fp.Process(&Filter{Offset: -1})
-	r.Error(err)
-	a.Nil(p)
+	r.NoError(err)
+	a.NotNil(p)
 
 	p, err = fp.Process(&Filter{Limit: -1})
-	r.Error(err)
-	a.Nil(p)
+	r.NoError(err)
+	a.NotNil(p)
 
 	// Sort filter
 	p, err = fp.Process(sortFilter)

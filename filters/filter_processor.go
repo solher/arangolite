@@ -59,19 +59,11 @@ func (fp *filterProcessor) Process(f *Filter) (*processedFilter, error) {
 
 	pf := &processedFilter{}
 
-	if f.Offset != 0 {
-		if f.Offset < 0 {
-			return nil, fmt.Errorf("invalid offset filter: %d", f.Offset)
-		}
-
+	if f.Offset > 0 {
 		pf.OffsetLimit = strconv.Itoa(f.Offset)
 	}
 
-	if f.Limit != 0 {
-		if f.Limit < 0 {
-			return nil, fmt.Errorf("invalid limit filter: %d", f.Limit)
-		}
-
+	if f.Limit > 0 {
 		if len(pf.OffsetLimit) > 0 {
 			pf.OffsetLimit = pf.OffsetLimit + ", " + strconv.Itoa(f.Limit)
 		} else {
