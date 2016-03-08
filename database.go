@@ -5,25 +5,50 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
-	"syscall"
 	"time"
+
+	"github.com/eapache/go-resiliency/retrier"
+	"gopkg.in/h2non/gentleman-retry.v0"
+	"gopkg.in/h2non/gentleman.v0"
+	"gopkg.in/h2non/gentleman.v0/context"
 )
 
 // DB represents an access to an ArangoDB database.
 type DB struct {
 	url, database, username, password string
-	conn                              *http.Client
+	conn                              *gentleman.Client
 	l                                 *logger
 }
 
 // New returns a new DB object.
 func New() *DB {
-	return &DB{conn: &http.Client{}, l: newLogger()}
+	db := &DB{l: newLogger()}
+
+	cli := gentleman.New()
+	cli.Use(retry.New(retrier.New(retrier.ExponentialBackoff(3, 100*time.Millisecond), nil)))
+	cli.UseRequest(func(ctx *context.Context, h context.Handler) {
+		u, err := url.Parse(db.url)
+		if err != nil {
+			h.Error(ctx, err)
+			return
+		}
+
+		ctx.Request.URL.Scheme = u.Scheme
+		ctx.Request.URL.Host = u.Host
+		ctx.Request.URL.Path = db.dbPath()
+		h.Next(ctx)
+	})
+	cli.UseRequest(func(ctx *context.Context, h context.Handler) {
+		ctx.Request.SetBasicAuth(db.username, db.password)
+		h.Next(ctx)
+	})
+
+	db.conn = cli
+
+	return db
 }
 
 // LoggerOptions sets the Arangolite logger options.
@@ -85,7 +110,6 @@ func (db *DB) RunAsync(q Runnable) (*Result, error) {
 	}
 
 	c, err := db.send(q.Description(), q.Method(), q.Path(), q.Generate())
-
 	if err != nil {
 		return nil, err
 	}
@@ -117,64 +141,25 @@ func (db *DB) Send(description, method, path string, req interface{}) ([]byte, e
 func (db *DB) send(description, method, path string, body []byte) (chan interface{}, error) {
 	in := make(chan interface{}, 16)
 	out := make(chan interface{}, 16)
-	fullURL := getFullURL(db, path)
 
-	db.l.LogBegin(description, method, fullURL, body)
+	db.l.LogBegin(description, method, db.url+db.dbPath()+path, body)
 	start := time.Now()
 
-	var (
-		r   *http.Response
-		err error
-	)
-
-	for {
-		var req *http.Request
-		req, err = http.NewRequest(method, fullURL, bytes.NewBuffer(body))
-		if err != nil {
-			db.l.LogError(err.Error(), start)
-			return nil, err
-		}
-
-		req.SetBasicAuth(db.username, db.password)
-
-		r, err = db.conn.Do(req)
-
-		if err != nil {
-			if r != nil {
-				io.Copy(ioutil.Discard, r.Body)
-				r.Body.Close()
-			}
-
-			if strings.Contains(err.Error(), syscall.ECONNRESET.Error()) {
-				continue
-			}
-		}
-
-		break
-	}
-
+	req := db.conn.Request().Method(method).AddPath(path).Body(bytes.NewBuffer(body))
+	res, err := req.Send()
 	if err != nil {
-		if r != nil {
-			io.Copy(ioutil.Discard, r.Body)
-			r.Body.Close()
-		}
-
 		db.l.LogError(err.Error(), start)
 		return nil, err
 	}
 
-	rawResult, _ := ioutil.ReadAll(r.Body)
-	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
+	if !res.Ok && len(res.Bytes()) == 0 {
+		err := errors.New("the database returned a " + strconv.Itoa(res.StatusCode))
 
-	if (r.StatusCode < 200 || r.StatusCode > 299) && len(rawResult) == 0 {
-		err = errors.New("the database returned a " + strconv.Itoa(r.StatusCode))
-
-		switch r.StatusCode {
+		switch res.StatusCode {
 		case http.StatusUnauthorized:
 			err = errors.New("unauthorized: invalid credentials")
 		case http.StatusTemporaryRedirect:
-			err = errors.New("the database returned a 307 to " + r.Header.Get("Location"))
+			err = errors.New("the database returned a 307 to " + res.Header.Get("Location"))
 		}
 
 		db.l.LogError(err.Error(), start)
@@ -183,7 +168,7 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	}
 
 	result := &result{}
-	json.Unmarshal(rawResult, result)
+	json.Unmarshal(res.Bytes(), result)
 
 	if result.Error {
 		db.l.LogError(result.ErrorMessage, start)
@@ -195,11 +180,11 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	if len(result.Content) != 0 {
 		in <- result.Content
 	} else {
-		in <- json.RawMessage(rawResult)
+		in <- json.RawMessage(res.Bytes())
 	}
 
 	if result.HasMore {
-		go db.followCursor(fullURL+"/"+result.ID, in)
+		go db.followCursor(path+"/"+result.ID, in)
 	} else {
 		in <- nil
 	}
@@ -209,48 +194,16 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 
 // followCursor requests the cursor in database, put the result in the channel
 // and follow while more batches are available.
-func (db *DB) followCursor(url string, c chan interface{}) {
-	var (
-		r   *http.Response
-		err error
-	)
-
-	for {
-		var req *http.Request
-		req, _ = http.NewRequest("PUT", url, bytes.NewBuffer(nil))
-
-		req.SetBasicAuth(db.username, db.password)
-
-		r, err = db.conn.Do(req)
-
-		if err != nil {
-			if r != nil {
-				io.Copy(ioutil.Discard, r.Body)
-				r.Body.Close()
-			}
-
-			if strings.Contains(err.Error(), syscall.ECONNRESET.Error()) {
-				continue
-			}
-		}
-
-		break
-	}
-
+func (db *DB) followCursor(path string, c chan interface{}) {
+	req := db.conn.Request().Method("PUT").AddPath(path)
+	res, err := req.Send()
 	if err != nil {
-		if r != nil {
-			io.Copy(ioutil.Discard, r.Body)
-			r.Body.Close()
-		}
-
 		c <- err
 		return
 	}
 
 	result := &result{}
-	json.NewDecoder(r.Body).Decode(result)
-	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
+	json.Unmarshal(res.Bytes(), result)
 
 	if result.Error {
 		c <- errors.New(result.ErrorMessage)
@@ -260,13 +213,13 @@ func (db *DB) followCursor(url string, c chan interface{}) {
 	c <- result.Content
 
 	if result.HasMore {
-		go db.followCursor(url, c)
+		go db.followCursor(path, c)
 	} else {
 		c <- nil
 	}
 }
 
-// syncResult	synchronises the async result and returns all elements
+// syncResult synchronises the async result and returns all elements
 // of every batch returned by the database.
 func (db *DB) syncResult(async *Result) []byte {
 	r := async.Buffer()
@@ -299,10 +252,6 @@ func (db *DB) syncResult(async *Result) []byte {
 	return result
 }
 
-func getFullURL(db *DB, path string) string {
-	url := bytes.NewBufferString(db.url)
-	url.WriteString("/_db/")
-	url.WriteString(db.database)
-	url.WriteString(path)
-	return url.String()
+func (db *DB) dbPath() string {
+	return "/_db/" + db.database
 }

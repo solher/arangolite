@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
+	"github.com/h2non/gentleman-mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,7 +12,7 @@ import (
 // TestConnect runs tests on the arangolite Connect method.
 func TestConnect(t *testing.T) {
 	db := New().LoggerOptions(false, false, false)
-	db.Connect("http://arangodb:8000", "dbName", "foo", "bar").SwitchDatabase("dbName").SwitchUser("foo", "bar")
+	db.Connect("http://database:8000", "dbName", "foo", "bar").SwitchDatabase("dbName").SwitchUser("foo", "bar")
 }
 
 // TestRun runs tests on the arangolite Run and RunAsync methods.
@@ -20,7 +20,7 @@ func TestRun(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
 	db := New().LoggerOptions(false, false, false)
-	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
+	db.Connect("http://database:8000", "dbName", "foo", "bar")
 
 	result, err := db.Run(nil)
 	r.NoError(err)
@@ -36,11 +36,12 @@ func TestSend(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+	db := New().LoggerOptions(false, false, false)
+	db.conn.Use(mock.Plugin)
+	defer mock.Disable()
+	m := mock.New("http://database:8000").Persist()
 
 	// The connect params are incorrect
-	db := New().LoggerOptions(false, false, false)
 	db.Connect("", "", "", "")
 	result, err := db.send("TEST", "POST", "/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
 	r.Error(err)
@@ -53,19 +54,24 @@ func TestSend(t *testing.T) {
 	a.Nil(result)
 
 	// A database returning an unauthorized status is created
-	setUnauthorizedResponder()
+	m.Post("/_db/dbName/path").
+		Reply(401).
+		BodyString(``)
 
 	// Unauthorized access
-	db.Connect("http://arangodb:8000", "dbName", "bar", "foo")
+	db.Connect("http://database:8000", "dbName", "bar", "foo")
 	result, err = db.send("TEST", "POST", "/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
 	r.Error(err)
+	r.Contains(err.Error(), "unauthorized")
 	a.Nil(result)
 
 	// A valid database returning an empty result is created
-	setValidResponder()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": []}`)
 
 	// The query is empty and succeeds
-	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
+	db.Connect("http://database:8000", "dbName", "foo", "bar")
 	result, err = db.send("TEST", "POST", "/path", []byte{})
 	r.NoError(err)
 	a.Equal("[]", string((<-result).(json.RawMessage)))
@@ -86,10 +92,12 @@ func TestSend(t *testing.T) {
 	a.Nil(resultByte)
 
 	// A valid database emulating a config response is created
-	setValidResponderBasic()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": false}`)
 
 	// The query is empty and succeeds
-	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
+	db.Connect("http://database:8000", "dbName", "foo", "bar")
 	result, err = db.send("TEST", "POST", "/path", []byte{})
 	r.NoError(err)
 	a.Equal("{\"error\": false}", string((<-result).(json.RawMessage)))
@@ -100,7 +108,9 @@ func TestSend(t *testing.T) {
 	a.Equal("{\"error\": false}", string(resultByte))
 
 	// A database returning an error is created
-	setErrorResponder()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": true, "errorMessage": "ERROR !"}`)
 
 	// The database error is returned
 	result, err = db.send("TEST", "POST", "/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
@@ -114,7 +124,9 @@ func TestSend(t *testing.T) {
 	a.Nil(resultByte)
 
 	// A valid database returning a cursor is created
-	setHasMoreResponder()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [], "hasMore":true, "id":"1000"}`)
 
 	// send doesn't return error but one is returned in the channel as no responder
 	// is listening for the PUT method
@@ -124,7 +136,14 @@ func TestSend(t *testing.T) {
 	a.Error((<-result).(error))
 
 	// The PUT responder is set but returns an error
-	setHasMoreResponderPutError()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [], "hasMore":true, "id":"1000"}`)
+
+	m2 := mock.New("http://database:8000").Persist()
+	m2.Put("/_db/dbName/path/1000").
+		Reply(200).
+		BodyString(`{"error": true, "errorMessage": "ERROR !", "result": [], "hasMore":false, "id":"1000"}`)
 
 	// The database error is returned in the channel
 	result, err = db.send("TEST", "POST", "/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
@@ -133,52 +152,17 @@ func TestSend(t *testing.T) {
 	a.Equal("ERROR !", (<-result).(error).Error())
 
 	// The PUT responder is set and don't returns errors
-	setHasMoreResponderPutValid()
+	m.Post("/_db/dbName/path").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [{}], "hasMore":true, "id":"1000"}`)
+
+	m2.Put("/_db/dbName/path/1000").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [{}], "hasMore":false}`)
 
 	// The database error is returned in the channel
 	result, err = db.send("TEST", "POST", "/path", []byte(`{"query":"FOR c IN customer RETURN c"}`))
 	r.NoError(err)
 	a.Equal("[{}]", string((<-result).(json.RawMessage)))
 	a.Equal("[{}]", string((<-result).(json.RawMessage)))
-}
-
-func setUnauthorizedResponder() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(401, ``))
-}
-
-func setValidResponder() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": []}`))
-}
-
-func setValidResponderBasic() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false}`))
-}
-
-func setErrorResponder() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": true, "errorMessage": "ERROR !"}`))
-}
-
-func setHasMoreResponder() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [], "hasMore":true, "id":"1000"}`))
-}
-
-func setHasMoreResponderPutError() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [], "hasMore":true, "id":"1000"}`))
-
-	httpmock.RegisterResponder("PUT", "http://arangodb:8000/_db/dbName/path/1000",
-		httpmock.NewStringResponder(200, `{"error": true, "errorMessage": "ERROR !", "result": [], "hasMore":false, "id":"1000"}`))
-}
-
-func setHasMoreResponderPutValid() {
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/path",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [{}], "hasMore":true, "id":"1000"}`))
-
-	httpmock.RegisterResponder("PUT", "http://arangodb:8000/_db/dbName/path/1000",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [{}], "hasMore":false}`))
 }

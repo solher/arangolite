@@ -3,7 +3,7 @@ package arangolite
 import (
 	"testing"
 
-	"github.com/jarcoal/httpmock"
+	"github.com/h2non/gentleman-mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,18 +27,19 @@ func TestQueryRun(t *testing.T) {
 	a := assert.New(t)
 	r := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
 	db := New().LoggerOptions(false, false, false)
-	db.Connect("http://arangodb:8000", "dbName", "foo", "bar")
+	db.Connect("http://query:8000", "dbName", "foo", "bar")
 
 	result, err := db.Run(NewQuery(shortQuery))
 	r.Error(err)
 	a.Nil(result)
 
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": []}`))
+	db.conn.Use(mock.Plugin)
+	defer mock.Disable()
+	m := mock.New("http://query:8000").Persist()
+	m.Post("/_db/dbName/_api/cursor").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": []}`)
 
 	result, err = db.Run(NewQuery(""))
 	r.NoError(err)
@@ -48,11 +49,14 @@ func TestQueryRun(t *testing.T) {
 	r.NoError(err)
 	a.Equal("[]", string(result))
 
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [{}], "hasMore":true, "id":"1000"}`))
+	m.Post("/_db/dbName/_api/cursor").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [{}], "hasMore":true, "id":"1000"}`)
 
-	httpmock.RegisterResponder("PUT", "http://arangodb:8000/_db/dbName/_api/cursor/1000",
-		httpmock.NewStringResponder(200, `{"error": false, "errorMessage": "", "result": [{}], "hasMore":false}`))
+	m2 := mock.New("http://query:8000").Persist()
+	m2.Put("/_db/dbName/_api/cursor/1000").
+		Reply(200).
+		BodyString(`{"error": false, "errorMessage": "", "result": [{}], "hasMore":false}`)
 
 	result, err = db.Run(NewQuery(""))
 	r.NoError(err)
@@ -70,8 +74,9 @@ func TestQueryRun(t *testing.T) {
 	r.NoError(err)
 	a.Equal("[{},{}]", string(result))
 
-	httpmock.RegisterResponder("POST", "http://arangodb:8000/_db/dbName/_api/cursor",
-		httpmock.NewStringResponder(500, `{"error": true, "errorMessage": "error !"}`))
+	m.Post("/_db/dbName/_api/cursor").
+		Reply(500).
+		BodyString(`{"error": true, "errorMessage": "error !"}`)
 
 	result, err = db.Run(NewQuery(shortQuery))
 	r.Error(err)
