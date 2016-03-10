@@ -142,10 +142,24 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 	in := make(chan interface{}, 16)
 	out := make(chan interface{}, 16)
 
+	url, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+
 	db.l.LogBegin(description, method, db.url+db.dbPath()+path, body)
 	start := time.Now()
+	path = url.EscapedPath()
 
-	req := db.conn.Request().Method(method).AddPath(path).Body(bytes.NewBuffer(body))
+	req := db.conn.Request().
+		Method(method).
+		AddPath(path).
+		SetQueryParams(db.queryParams(url))
+
+	if body != nil {
+		req.Body(bytes.NewBuffer(body))
+	}
+
 	res, err := req.Send()
 	if err != nil {
 		db.l.LogError(err.Error(), start)
@@ -195,7 +209,10 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 // followCursor requests the cursor in database, put the result in the channel
 // and follow while more batches are available.
 func (db *DB) followCursor(path string, c chan interface{}) {
-	req := db.conn.Request().Method("PUT").AddPath(path)
+	req := db.conn.Request().
+		Method("PUT").
+		AddPath(path)
+
 	res, err := req.Send()
 	if err != nil {
 		c <- err
@@ -254,4 +271,17 @@ func (db *DB) syncResult(async *Result) []byte {
 
 func (db *DB) dbPath() string {
 	return "/_db/" + db.database
+}
+
+func (db *DB) queryParams(url *url.URL) map[string]string {
+	values := url.Query()
+	queryParams := map[string]string{}
+
+	for k, v := range values {
+		if len(v) > 0 {
+			queryParams[k] = v[0]
+		}
+	}
+
+	return queryParams
 }

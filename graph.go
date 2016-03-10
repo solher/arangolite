@@ -87,7 +87,7 @@ func (l *ListGraphs) Description() string {
 }
 
 func (l *ListGraphs) Path() string {
-	return "/_api/gharial/"
+	return "/_api/gharial"
 }
 
 func (l *ListGraphs) Method() string {
