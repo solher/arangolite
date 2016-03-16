@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-
-	"github.com/solher/arangolite/filters"
 )
 
 // Filter defines a way of filtering AQL queries.
@@ -24,7 +22,7 @@ type processedFilter struct {
 }
 
 // FromRequest returns a filter object from a http request.
-func FromRequest(r *http.Request) (*filters.Filter, error) {
+func FromRequest(r *http.Request) (*Filter, error) {
 	param := r.URL.Query().Get("filter")
 
 	if len(param) == 0 {
