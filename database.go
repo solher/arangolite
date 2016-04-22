@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/eapache/go-resiliency/retrier"
-	"gopkg.in/h2non/gentleman-retry.v0"
-	"gopkg.in/h2non/gentleman.v0"
-	"gopkg.in/h2non/gentleman.v0/context"
+	"gopkg.in/h2non/gentleman-retry.v1"
+	"gopkg.in/h2non/gentleman.v1"
+	"gopkg.in/h2non/gentleman.v1/context"
 )
 
 // DB represents an access to an ArangoDB database.
