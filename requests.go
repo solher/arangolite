@@ -1,6 +1,10 @@
 package arangolite
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strconv"
+)
+
 
 // DATABASE
 
@@ -199,4 +203,87 @@ func (r *GetCacheProperties) Method() string {
 
 func (r *GetCacheProperties) Generate() []byte {
 	return nil
+}
+
+
+
+
+type CollectionInfo struct {
+	Id string        `json:"id"`
+	Name string       `json:"name"`
+	IsSystem bool       `json:"isSystem"`
+	Status int        `json:"status"`
+	Type int          `json:"type"`
+}
+
+type CollectionInfoList struct {
+	Collections []CollectionInfo    `json:"collections"`
+	Error bool                      `json:"error"`
+	Code int      `json:"code"`
+}
+
+
+// ListCollections lists all collections from the current DB
+type ListCollections struct {
+	includeSystem bool
+}
+
+func (c *ListCollections) Description() string {
+	return "LIST COLLECTIONS"
+}
+
+func (c *ListCollections) Path() string {
+	return "/_api/collection?excludeSystem=" + strconv.FormatBool(!c.includeSystem)
+}
+
+func (c *ListCollections) Method() string {
+	return "GET"
+}
+
+func (c *ListCollections) Generate() []byte {
+	return nil
+}
+
+// CollectionInfo gets information about the collection
+type GetCollectionInfo struct {
+	CollectionName string
+	IncludeSystem bool
+}
+
+func (c *GetCollectionInfo) Description() string {
+	return "COLLECTION INFO"
+}
+
+func (c *GetCollectionInfo) Path() string {
+	return "/_api/collection/" + c.CollectionName + "?excludeSystem=" + strconv.FormatBool(!c.IncludeSystem)
+}
+
+func (c *GetCollectionInfo) Method() string {
+	return "GET"
+}
+
+func (c *GetCollectionInfo) Generate() []byte {
+	return nil
+}
+
+// ImportCollection imports data to a collection
+type ImportCollection struct {
+	CollectionName string
+	Data           []byte
+}
+
+func (c *ImportCollection) Description() string {
+	return "IMPORT COLLECTION"
+}
+
+func (c *ImportCollection) Path() string {
+	return "/_api/import/?type=auto&collection=" + c.CollectionName
+}
+
+func (c *ImportCollection) Method() string {
+	return "POST"
+}
+
+func (c *ImportCollection) Generate() []byte {
+	return c.Data
 }
