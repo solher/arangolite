@@ -21,6 +21,9 @@ func TestRequests(t *testing.T) {
 	db.Run(&CreateCollection{})
 	db.Run(&DropCollection{})
 	db.Run(&TruncateCollection{})
+	db.Run(&ListCollections{})
+	db.Run(&GetCollectionInfo{})
+	db.Run(&ImportCollection{})
 
 	// INDEX
 	db.Run(&CreateHashIndex{})
@@ -28,4 +31,5 @@ func TestRequests(t *testing.T) {
 	// CACHE
 	db.Run(&SetCacheProperties{})
 	db.Run(&GetCacheProperties{})
+
 }
