@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/eapache/go-resiliency/retrier"
@@ -186,7 +187,18 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 
 	if result.Error {
 		db.l.LogError(result.ErrorMessage, start)
-		return nil, errors.New(result.ErrorMessage)
+		switch {
+		case strings.Contains(result.ErrorMessage, "unique constraint violated"):
+			return nil, &ErrUnique{result.ErrorMessage}
+		case strings.Contains(result.ErrorMessage, "not found"):
+			return nil, &ErrNotFound{result.ErrorMessage}
+		case strings.Contains(result.ErrorMessage, "unknown collection"):
+			return nil, &ErrNotFound{result.ErrorMessage}
+		case strings.Contains(result.ErrorMessage, "duplicate name"):
+			return nil, &ErrDuplicate{result.ErrorMessage}
+		default:
+			return nil, errors.New(result.ErrorMessage)
+		}
 	}
 
 	go db.l.LogResult(result.Cached, start, in, out)
