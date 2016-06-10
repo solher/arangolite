@@ -8,12 +8,21 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/eapache/go-resiliency/retrier"
 	"gopkg.in/h2non/gentleman-retry.v1"
 	"gopkg.in/h2non/gentleman.v1"
 	"gopkg.in/h2non/gentleman.v1/context"
+)
+
+// Well define for several common errors
+var (
+	// ErrNotExist represents error that object not found
+	ErrNotExist = errors.New("Not Exist")
+	// ErrExist represents error that object already exist
+	ErrExist = errors.New("Already Exist")
 )
 
 // DB represents an access to an ArangoDB database.
@@ -186,7 +195,13 @@ func (db *DB) send(description, method, path string, body []byte) (chan interfac
 
 	if result.Error {
 		db.l.LogError(result.ErrorMessage, start)
-		return nil, errors.New(result.ErrorMessage)
+		err := errors.New(result.ErrorMessage)
+		if strings.Contains(result.ErrorMessage, "unique constraint violated") {
+			err = ErrExist
+		} else if strings.Contains(result.ErrorMessage, "document not found") {
+			err = ErrNotExist
+		}
+		return nil, err
 	}
 
 	go db.l.LogResult(result.Cached, start, in, out)
