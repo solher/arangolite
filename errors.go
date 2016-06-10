@@ -9,7 +9,7 @@ func (e *ErrUnique) Error() string {
 	return e.s
 }
 
-// ErrNotFound throwned when error message contains "not found" string.
+// ErrNotFound throwned when error message contains "not found" or "unknown collection" string.
 type ErrNotFound struct {
 	s string
 }
