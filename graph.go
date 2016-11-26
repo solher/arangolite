@@ -17,11 +17,11 @@ type EdgeDefinition struct {
 type Graph struct {
 	Name string `json:"name"`
 	//An array of definitions for the edges
-	EdgeDefinitions []EdgeDefinition `json:"edgeDefinitions",omitempty`
+	EdgeDefinitions []EdgeDefinition `json:"edgeDefinitions,omitempty"`
 	//An array of additional vertex collections.
-	OrphanCollections []string `json:"orphanCollections",omitempty`
-	ID                string   `json:"_id",omitempty`
-	Rev               string   `json:"_rev",omitempty`
+	OrphanCollections []string `json:"orphanCollections,omitempty"`
+	ID                string   `json:"_id,omitempty"`
+	Rev               string   `json:"_rev,omitempty"`
 }
 
 // GraphData is a container for data returned by a GET GRAPH request
@@ -37,8 +37,8 @@ type GraphList struct {
 // CreateGraph creates a collection in database.
 type CreateGraph struct {
 	Name              string           `json:"name"`
-	EdgeDefinitions   []EdgeDefinition `json:"edgeDefinitions",omitempty`
-	OrphanCollections []string         `json:"orphanCollections",omitempty`
+	EdgeDefinitions   []EdgeDefinition `json:"edgeDefinitions,omitempty"`
+	OrphanCollections []string         `json:"orphanCollections,omitempty"`
 }
 
 func (c *CreateGraph) Description() string {
