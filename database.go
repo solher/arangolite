@@ -255,7 +255,7 @@ func (db *DB) syncResult(async *Result) []byte {
 	async.HasMore()
 
 	// If the result isn't a JSON array, we only returns the first batch.
-	if r.Bytes()[0] != '[' {
+	if len(r.Bytes()) == 0 || r.Bytes()[0] != '[' {
 		return r.Bytes()
 	}
 
