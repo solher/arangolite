@@ -33,7 +33,7 @@ func main() {
     LoggerOptions(false, false, false).
     Connect("http://localhost:8000", "_system", "root", "rootPassword")
 
-  _, _ := db.Run(&arangolite.CreateDatabase{
+  _, _ = db.Run(&arangolite.CreateDatabase{
 		Name: "testDB",
 		Users: []map[string]interface{}{
 			{"username": "root", "passwd": "rootPassword"},
@@ -43,7 +43,7 @@ func main() {
 
   db.SwitchDatabase("testDB").SwitchUser("user", "password")
 
-  _, _ := db.Run(&arangolite.CreateCollection{Name: "nodes"})
+  _, _ = db.Run(&arangolite.CreateCollection{Name: "nodes"})
 
   key := "48765564346"
 
