@@ -1,28 +1,76 @@
 package arangolite
 
-// ErrUnique throwned when error message contains "unique constraint violated" string.
-type ErrUnique struct {
-	s string
+type errUnique interface {
+	error
+	IsErrUnique()
 }
 
-func (e *ErrUnique) Error() string {
-	return e.s
+type errUniqueBehavior struct{}
+
+func (err errUniqueBehavior) IsErrUnique() {}
+
+func withErrUnique(err error) error {
+	return struct {
+		error
+		errUniqueBehavior
+	}{
+		err,
+		errUniqueBehavior{},
+	}
 }
 
-// ErrNotFound throwned when error message contains "not found" or "unknown collection" string.
-type ErrNotFound struct {
-	s string
+// IsErrUnique returns true when error message contains "unique constraint violated" string.
+func IsErrUnique(err error) bool {
+	_, ok := err.(errUniqueBehavior)
+	return ok
 }
 
-func (e *ErrNotFound) Error() string {
-	return e.s
+type errNotFound interface {
+	error
+	IsErrNotFound()
 }
 
-// ErrDuplicate throwned when error message contains "duplicate name" string.
-type ErrDuplicate struct {
-	s string
+type errNotFoundBehavior struct{}
+
+func (err errNotFound) IsErrNotFound() {}
+
+func withErrNotFound(err error) error {
+	return struct {
+		error
+		errNotFoundBehavior
+	}{
+		err,
+		errNotFoundBehavior{},
+	}
 }
 
-func (e *ErrDuplicate) Error() string {
-	return e.s
+// IsErrNotFound returns true when error message contains "not found" or "unknown collection" string.
+func IsErrNotFound(err error) bool {
+	_, ok := err.(errNotFoundBehavior)
+	return ok
+}
+
+type errDuplicate interface {
+	error
+	IsErrDuplicate()
+}
+
+type errDuplicateBehavior struct{}
+
+func (err errDuplicate) IsErrDuplicate() {}
+
+func withErrDuplicate(err error) error {
+	return struct {
+		error
+		errDuplicateBehavior
+	}{
+		err,
+		errDuplicateBehavior{},
+	}
+}
+
+// IsErrDuplicate returns true when error message contains "duplicate name" string.
+func IsErrDuplicate(err error) bool {
+	_, ok := err.(errDuplicateBehavior)
+	return ok
 }

@@ -1,4 +1,4 @@
-package arangolite
+package requests
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 type Transaction struct {
 	readCol, writeCol []string
 	resultVars        []string
-	queries           []Query
+	queries           []AQL
 	returnVar         string
 	bindVars          map[string]string
 }
@@ -28,26 +28,26 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 	return &Transaction{readCol: readCol, writeCol: writeCol}
 }
 
-// AddQuery adds a new AQL query to the transaction. The result will be set in
+// AddAQL adds a new AQL query to the transaction. The result will be set in
 // a temp variable named after the value of "resultVar".
 // To use it from elsewhere in the transaction, use the Go templating convention.
 //
 // e.g. NewTransaction([]string{}, []string{}).
-//      AddQuery("var1", "FOR d IN documents RETURN d").
-//      AddQuery("var2", "FOR d IN {{.var1}} RETURN d._id").Run(db)
+//      AddAQL("var1", "FOR d IN documents RETURN d").
+//      AddAQL("var2", "FOR d IN {{.var1}} RETURN d._id").Run(db)
 //
-func (t *Transaction) AddQuery(resultVar, aql string, params ...interface{}) *Transaction {
+func (t *Transaction) AddAQL(resultVar, query string, params ...interface{}) *Transaction {
 	t.resultVars = append(t.resultVars, resultVar)
-	t.queries = append(t.queries, *NewQuery(toES6Template(aql), params...))
+	t.queries = append(t.queries, *NewAQL(toES6Template(query), params...))
 	return t
 }
 
 // Bind sets the name and value of a bind parameter
 // Binding parameters prevents AQL injection
 // Example:
-// transaction := arangolite.NewTransaction([]string{}, []string{}).
-// 		AddQuery("var1", "FOR d IN nodes FILTER d._key == @key RETURN d._id").
-// 		AddQuery("var2", "FOR n IN nodes FILTER n._id == {{.var1}}[0] RETURN n._key").Return("var2")
+// transaction := NewTransaction([]string{}, []string{}).
+// 		AddAQL("var1", "FOR d IN nodes FILTER d._key == @key RETURN d._id").
+// 		AddAQL("var2", "FOR n IN nodes FILTER n._id == {{.var1}}[0] RETURN n._key").Return("var2")
 // transaction.Bind("key", 123)
 //
 func (t *Transaction) Bind(name string, value interface{}) *Transaction {
@@ -63,10 +63,6 @@ func (t *Transaction) Bind(name string, value interface{}) *Transaction {
 func (t *Transaction) Return(resultVar string) *Transaction {
 	t.returnVar = resultVar
 	return t
-}
-
-func (t *Transaction) Description() string {
-	return "TRANSACTION"
 }
 
 func (t *Transaction) Path() string {
@@ -100,8 +96,8 @@ func (t *Transaction) Generate() []byte {
 		jsFunc.WriteString("; ")
 	}
 
-	for i, query := range t.queries {
-		writeQuery(jsFunc, query.aql, t.resultVars[i])
+	for i, q := range t.queries {
+		writeQuery(jsFunc, q.query, t.resultVars[i])
 	}
 
 	if len(t.returnVar) > 0 {

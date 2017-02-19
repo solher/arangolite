@@ -1,10 +1,9 @@
-package arangolite
+package requests
 
 import (
 	"encoding/json"
+	"fmt"
 )
-
-// GRAPH management
 
 // EdgeDefinition is a definition of the graph edges
 type EdgeDefinition struct {
@@ -41,10 +40,6 @@ type CreateGraph struct {
 	OrphanCollections []string         `json:"orphanCollections,omitempty"`
 }
 
-func (c *CreateGraph) Description() string {
-	return "CREATE GRAPH"
-}
-
 func (c *CreateGraph) Path() string {
 	return "/_api/gharial"
 }
@@ -63,12 +58,8 @@ type GetGraph struct {
 	Name string
 }
 
-func (g *GetGraph) Description() string {
-	return "GET GRAPH"
-}
-
 func (g *GetGraph) Path() string {
-	return "/_api/gharial/" + g.Name
+	return fmt.Sprintf("/_api/gharial/%s", g.Name)
 }
 
 func (g *GetGraph) Method() string {
@@ -81,10 +72,6 @@ func (g *GetGraph) Generate() []byte {
 
 // ListGraph lists all graphs known by the graph module.
 type ListGraphs struct{}
-
-func (l *ListGraphs) Description() string {
-	return "LIST GRAPHS"
-}
 
 func (l *ListGraphs) Path() string {
 	return "/_api/gharial"
@@ -104,18 +91,8 @@ type DropGraph struct {
 	DropCollections bool
 }
 
-func (d *DropGraph) Description() string {
-	return "DROP GRAPH"
-}
-
 func (d *DropGraph) Path() string {
-	var queryParameters string
-
-	if d.DropCollections {
-		queryParameters = "?dropCollections=true"
-	}
-
-	return "/_api/gharial/" + d.Name + queryParameters
+	return fmt.Sprintf("/_api/gharial/%s?dropCollections=%v", d.Name, d.DropCollections)
 }
 
 func (d *DropGraph) Method() string {
