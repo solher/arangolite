@@ -1,22 +1,16 @@
 package arangolite
 
-type errUnique interface {
+type errUniqueBehavior interface {
 	error
 	IsErrUnique()
 }
 
-type errUniqueBehavior struct{}
+type errUnique struct{ error }
 
-func (err errUniqueBehavior) IsErrUnique() {}
+func (err errUnique) IsErrUnique() {}
 
 func withErrUnique(err error) error {
-	return struct {
-		error
-		errUniqueBehavior
-	}{
-		err,
-		errUniqueBehavior{},
-	}
+	return errUnique{err}
 }
 
 // IsErrUnique returns true when error message contains "unique constraint violated" string.
@@ -25,23 +19,17 @@ func IsErrUnique(err error) bool {
 	return ok
 }
 
-type errNotFound interface {
+type errNotFoundBehavior interface {
 	error
 	IsErrNotFound()
 }
 
-type errNotFoundBehavior struct{}
+type errNotFound struct{ error }
 
 func (err errNotFound) IsErrNotFound() {}
 
 func withErrNotFound(err error) error {
-	return struct {
-		error
-		errNotFoundBehavior
-	}{
-		err,
-		errNotFoundBehavior{},
-	}
+	return errNotFound{err}
 }
 
 // IsErrNotFound returns true when error message contains "not found" or "unknown collection" string.
@@ -50,23 +38,17 @@ func IsErrNotFound(err error) bool {
 	return ok
 }
 
-type errDuplicate interface {
+type errDuplicateBehavior interface {
 	error
 	IsErrDuplicate()
 }
 
-type errDuplicateBehavior struct{}
+type errDuplicate struct{ error }
 
 func (err errDuplicate) IsErrDuplicate() {}
 
 func withErrDuplicate(err error) error {
-	return struct {
-		error
-		errDuplicateBehavior
-	}{
-		err,
-		errDuplicateBehavior{},
-	}
+	return errDuplicate{err}
 }
 
 // IsErrDuplicate returns true when error message contains "duplicate name" string.
