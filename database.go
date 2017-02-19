@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -51,11 +50,36 @@ func HTTPClient(cli *http.Client) Option {
 	}
 }
 
-// Logger sets the logger used by the drive to print debug information.
-func Logger(logger *log.Logger) Option {
+// Logging enables logging of the exchanges with the database.
+func Logging(logger *log.Logger, verbosity LogVerbosity) Option {
 	return func(db *Database) {
-		db.logger = logger
+		db.sender = newLoggingSender(db.sender, logger, verbosity)
 	}
+}
+
+// Runnable defines requests runnable by the Run and Send methods.
+// A Runnable library is located in the 'requests' package.
+type Runnable interface {
+	// The body of the request.
+	Generate() []byte
+	// The path where to send the request.
+	Path() string
+	// The HTTP method to use.
+	Method() string
+}
+
+// Result defines the result returned by the execution of a Runnable.
+type Result interface {
+	// The raw answer from the database.
+	Raw() json.RawMessage
+	// The raw answer content.
+	RawContent() json.RawMessage
+	// HasMore indicates if a next result page is available.
+	HasMore() bool
+	// The cursor ID if more result pages are available.
+	Cursor() string
+	// Unmarshal decodes the value of the Content field into the given object.
+	Unmarshal(v interface{}) error
 }
 
 // Database represents an access to an ArangoDB database.
@@ -64,7 +88,7 @@ type Database struct {
 	username, password string
 	dbname             string
 	cli                *http.Client
-	logger             *log.Logger
+	sender             sender
 }
 
 // NewDatabase returns a new Database object.
@@ -89,7 +113,6 @@ func NewDatabase(opts ...Option) *Database {
 			},
 			Timeout: 10 * time.Minute,
 		},
-		logger: log.New(ioutil.Discard, "", 0),
 	}
 
 	for _, opt := range opts {
@@ -97,31 +120,6 @@ func NewDatabase(opts ...Option) *Database {
 	}
 
 	return db
-}
-
-// Runnable defines requests runnable by the Run and RunAsync methods.
-// Queries, transactions and everything in the requests.go file are Runnable.
-type Runnable interface {
-	// The body of the request.
-	Generate() []byte
-	// The path where to send the request.
-	Path() string
-	// The HTTP method to use.
-	Method() string
-}
-
-// Result defines the result returned by the execution of a Runnable.
-type Result interface {
-	// The raw answer from the database.
-	Raw() json.RawMessage
-	// The raw answer content.
-	RawContent() json.RawMessage
-	// HasMore indicates if a next result page is available.
-	HasMore() bool
-	// The cursor ID if more result pages are available.
-	Cursor() string
-	// Unmarshal decodes the value of the Content field into the given object.
-	Unmarshal(v interface{}) error
 }
 
 // Run runs the Runnable, follows the query cursor if needed and unmarshal
@@ -151,94 +149,19 @@ func (db *Database) Send(q Runnable) (Result, error) {
 		return &result{}, nil
 	}
 
-	r, err := db.send(q.Method(), q.Path(), q.Generate())
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
-}
-
-type parsedResult struct {
-	Error        bool            `json:"error"`
-	ErrorMessage string          `json:"errorMessage"`
-	Content      json.RawMessage `json:"result"`
-	Cached       bool            `json:"cached"`
-	HasMore      bool            `json:"hasMore"`
-	ID           string          `json:"id"`
-}
-
-type result struct {
-	raw    json.RawMessage
-	parsed parsedResult
-}
-
-func (r *result) Raw() json.RawMessage {
-	return r.raw
-}
-
-func (r *result) RawContent() json.RawMessage {
-	return r.parsed.Content
-}
-
-func (r *result) HasMore() bool {
-	return r.parsed.HasMore
-}
-
-func (r *result) Cursor() string {
-	return r.parsed.ID
-}
-
-func (r *result) Unmarshal(v interface{}) error {
-	return json.Unmarshal(r.raw, v)
-}
-
-func (db *Database) send(method, path string, body []byte) (*result, error) {
-	u, err := url.Parse(fmt.Sprintf("http://%s:%s/_db/%s/%s", db.host, db.port, db.dbname, path))
+	u, err := url.Parse(fmt.Sprintf("http://%s:%s/_db/%s/%s", db.host, db.port, db.dbname, q.Path()))
 	if err != nil {
 		return nil, errors.Wrap(err, "the database URL generation failed")
 	}
 
 	req := &http.Request{
-		Method: method,
-		Body:   ioutil.NopCloser(bytes.NewBuffer(body)),
+		Method: q.Method(),
+		Body:   ioutil.NopCloser(bytes.NewBuffer(q.Generate())),
 		URL:    u,
 	}
 	req.SetBasicAuth(db.username, db.password)
 
-	res, err := db.cli.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "the database HTTP request failed")
-	}
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		res.Body.Close()
-		return nil, errors.Errorf("the database HTTP request failed, status code %d", res.StatusCode)
-	}
-
-	raw, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read the database response")
-	}
-	parsed := parsedResult{}
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return nil, errors.Wrap(err, "database response decoding failed")
-	}
-
-	if parsed.Error {
-		err := errors.Wrap(errors.New(parsed.ErrorMessage), "the database returned an error")
-		switch {
-		case strings.Contains(parsed.ErrorMessage, "unique constraint violated"):
-			err = withErrUnique(err)
-		case strings.Contains(parsed.ErrorMessage, "not found") || strings.Contains(parsed.ErrorMessage, "unknown collection"):
-			err = withErrNotFound(err)
-		case strings.Contains(parsed.ErrorMessage, "duplicate name"):
-			err = withErrDuplicate(err)
-		}
-		return nil, err
-	}
-
-	return &result{raw: raw, parsed: parsed}, nil
+	return db.sender.Send(db.cli, req)
 }
 
 // followCursor follows the cursor of the given result and returns
