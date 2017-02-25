@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/pkg/errors"
 )
 
 type sender interface {
-	Send(cli *http.Client, req *http.Request) (Result, error)
+	Send(cli *http.Client, req *http.Request) (*response, error)
 }
 
 type basicSender struct{}
 
-func (s *basicSender) Send(cli *http.Client, req *http.Request) (Result, error) {
+func (s *basicSender) Send(cli *http.Client, req *http.Request) (*response, error) {
 	res, err := cli.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "the database HTTP request failed")
@@ -30,57 +29,44 @@ func (s *basicSender) Send(cli *http.Client, req *http.Request) (Result, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read the database response")
 	}
-	parsed := parsedResult{}
+	parsed := parsedResponse{}
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return nil, errors.Wrap(err, "database response decoding failed")
 	}
 
-	if parsed.Error {
-		err := errors.Wrap(errors.New(parsed.ErrorMessage), "the database returned an error")
-		switch {
-		case strings.Contains(parsed.ErrorMessage, "unique constraint violated"):
-			err = withErrUnique(err)
-		case strings.Contains(parsed.ErrorMessage, "not found") || strings.Contains(parsed.ErrorMessage, "unknown collection"):
-			err = withErrNotFound(err)
-		case strings.Contains(parsed.ErrorMessage, "duplicate name"):
-			err = withErrDuplicate(err)
-		}
-		return nil, err
-	}
-
-	return &result{raw: raw, parsed: parsed}, nil
+	return &response{raw: raw, parsed: parsed}, nil
 }
 
-type parsedResult struct {
+type parsedResponse struct {
 	Error        bool            `json:"error"`
 	ErrorMessage string          `json:"errorMessage"`
-	Content      json.RawMessage `json:"result"`
+	Result       json.RawMessage `json:"result"`
 	Cached       bool            `json:"cached"`
 	HasMore      bool            `json:"hasMore"`
 	ID           string          `json:"id"`
 }
 
-type result struct {
+type response struct {
 	raw    json.RawMessage
-	parsed parsedResult
+	parsed parsedResponse
 }
 
-func (r *result) Raw() json.RawMessage {
+func (r *response) Raw() json.RawMessage {
 	return r.raw
 }
 
-func (r *result) RawContent() json.RawMessage {
-	return r.parsed.Content
+func (r *response) RawResult() json.RawMessage {
+	return r.parsed.Result
 }
 
-func (r *result) HasMore() bool {
+func (r *response) HasMore() bool {
 	return r.parsed.HasMore
 }
 
-func (r *result) Cursor() string {
+func (r *response) Cursor() string {
 	return r.parsed.ID
 }
 
-func (r *result) Unmarshal(v interface{}) error {
+func (r *response) Unmarshal(v interface{}) error {
 	return json.Unmarshal(r.raw, v)
 }

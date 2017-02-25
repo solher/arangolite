@@ -27,7 +27,7 @@ func newLoggingSender(sender sender, logger *log.Logger, verbosity LogVerbosity)
 }
 
 type loggingSender struct {
-	sender
+	sender    sender
 	logger    *log.Logger
 	verbosity LogVerbosity
 }
@@ -41,7 +41,7 @@ func (s *loggingSender) Send(cli *http.Client, req *http.Request) (Result, error
 
 	now := time.Now()
 
-	result, err := s.Send(cli, req)
+	result, err := s.sender.Send(cli, req)
 	if err != nil {
 		s.logger.Printf("Error: %s\n", err.Error())
 		return nil, err
