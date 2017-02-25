@@ -113,6 +113,7 @@ func NewDatabase(opts ...Option) *Database {
 			},
 			Timeout: 10 * time.Minute,
 		},
+		sender: &basicSender{},
 	}
 
 	for _, opt := range opts {
