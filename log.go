@@ -32,7 +32,7 @@ type loggingSender struct {
 	verbosity LogVerbosity
 }
 
-func (s *loggingSender) Send(cli *http.Client, req *http.Request) (Result, error) {
+func (s *loggingSender) Send(cli *http.Client, req *http.Request) (*response, error) {
 	if s.verbosity == LogDebug {
 		r, _ := httputil.DumpRequestOut(req, true)
 		s.logger.Println("Request:")
@@ -41,16 +41,20 @@ func (s *loggingSender) Send(cli *http.Client, req *http.Request) (Result, error
 
 	now := time.Now()
 
-	result, err := s.sender.Send(cli, req)
+	res, err := s.sender.Send(cli, req)
 	if err != nil {
-		s.logger.Printf("Error: %s\n", err.Error())
+		s.logger.Printf("Send error: %s\n", err.Error())
 		return nil, err
+	}
+	if res.parsed.Error {
+		s.logger.Printf("Database error: %s\n", res.parsed.ErrorMessage)
+		return res, nil
 	}
 
 	s.logger.Printf("Success in %v:\n", time.Since(now))
 	if s.verbosity == LogDebug {
-		s.logger.Println(result.Raw())
+		s.logger.Println(res.raw)
 	}
 
-	return result, nil
+	return res, nil
 }
