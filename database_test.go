@@ -50,7 +50,7 @@ func TestOptionsSend(t *testing.T) {
 		logger             *log.Logger
 		verbosity          arangolite.LogVerbosity
 		// Expected results
-		err bool
+		testErr func(err error) bool
 	}{
 		{
 			description: "zero/nil parameters",
@@ -60,7 +60,7 @@ func TestOptionsSend(t *testing.T) {
 			httpClient: nil,
 			logger:     nil,
 			verbosity:  0,
-			err:        true,
+			testErr:    func(err error) bool { return err != nil },
 		},
 		{
 			description: "parameters correctly set",
@@ -70,7 +70,7 @@ func TestOptionsSend(t *testing.T) {
 			httpClient: client,
 			logger:     logger,
 			verbosity:  arangolite.LogDebug,
-			err:        false,
+			testErr:    func(err error) bool { return err == nil },
 		},
 	}
 
@@ -84,8 +84,8 @@ func TestOptionsSend(t *testing.T) {
 				arangolite.OptLogging(tc.logger, tc.verbosity),
 			)
 			_, err := db.Send(requests.NewAQL(""))
-			if tc.err != (err != nil) {
-				t.Errorf("error expected: %v, got: %s", tc.err, err)
+			if ok := tc.testErr(err); !ok {
+				t.Errorf("unexpected error: %s", err)
 			}
 		})
 	}
