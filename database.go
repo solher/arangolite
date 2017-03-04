@@ -192,8 +192,10 @@ func (db *Database) followCursor(r Response) ([]byte, error) {
 		return r.RawResult(), nil
 	}
 
+	buf := bytes.NewBuffer(r.RawResult()[:len(r.RawResult())-1])
+	buf.WriteRune(',')
+
 	q := &requests.FollowCursor{Cursor: r.Cursor()}
-	buf := bytes.NewBuffer([]byte{'['})
 	var err error
 
 	for r.HasMore() {

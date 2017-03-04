@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"strings"
+
 	"github.com/pkg/errors"
 )
 
@@ -34,6 +36,7 @@ func (s *basicSender) Send(cli *http.Client, req *http.Request) (*response, erro
 		return nil, errors.Wrap(err, "database response decoding failed")
 	}
 
+	raw = []byte(strings.TrimSpace(string(raw)))
 	return &response{raw: raw, parsed: parsed}, nil
 }
 
