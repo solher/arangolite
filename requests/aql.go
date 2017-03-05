@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -16,11 +17,7 @@ type AQL struct {
 
 // NewAQL returns a new AQL object.
 func NewAQL(query string, params ...interface{}) *AQL {
-	query = processAQL(query) // Process to remove eventual tabs/spaces used when indenting the query
-	query = fmt.Sprintf(query, params...)
-	query = strings.Replace(query, `"`, "'", -1) // Replace by single quotes so there is no conflict when serialised in JSON
-
-	return &AQL{query: query}
+	return &AQL{query: processAQL(fmt.Sprintf(query, params...))}
 }
 
 // Cache enables/disables the caching of the query.
@@ -68,20 +65,23 @@ func (a *AQL) Generate() []byte {
 }
 
 func processAQL(query string) string {
-	query = strings.Replace(query, "\n", " ", -1)
-	query = strings.Replace(query, "\t", "", -1)
-
-	split := strings.Split(query, " ")
-	split2 := []string{}
-
-	for _, s := range split {
-		if len(s) == 0 {
-			continue
+	buf := bytes.NewBuffer(nil)
+	space := false
+	for _, c := range query {
+		switch c {
+		case ' ', '\n', '\t':
+			if !space {
+				buf.WriteRune(' ')
+				space = true
+			}
+		case '"':
+			buf.WriteRune('\'') // Replace by single quotes so there is no conflict when serialised in JSON
+		default:
+			buf.WriteRune(c)
+			if space {
+				space = false
+			}
 		}
-		split2 = append(split2, s)
 	}
-
-	query = strings.Join(split2, " ")
-
-	return query
+	return strings.TrimSpace(buf.String())
 }
