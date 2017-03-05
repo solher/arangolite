@@ -113,12 +113,13 @@ func TestRun(t *testing.T) {
 		},
 		{
 			description: "database execution succeeds two pages",
-			dbHandler: multiHandler(
-				[]int{200, 200},
+			dbHandler: cursorHandler(
+				200,
 				[]string{
-					`{"result": [{"_id":"1234"}], "hasMore": true}`,
-					`{"result": [{"_id":"4321"}], "hasMore": false}`,
+					`{"result": [{"_id":"1234"}], "hasMore": true, "id": "foobar"}`,
+					`{"result": [{"_id":"4321"}], "hasMore": false, "id": "foobar"}`,
 				},
+				"foobar",
 			),
 			testErr: func(err error) bool { return err == nil },
 			result:  []arangolite.Document{{ID: "1234"}, {ID: "4321"}},
@@ -257,14 +258,27 @@ func httpMock() (*http.Client, *httptest.Server) {
 }
 
 func handler(status int, body string) http.HandlerFunc {
-	return multiHandler([]int{status}, []string{body})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(status)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintln(w, body)
+	})
 }
 
-func multiHandler(statuses []int, bodies []string) http.HandlerFunc {
+func cursorHandler(status int, bodies []string, cursor string) http.HandlerFunc {
+	i := 0
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(statuses[0])
+		if i > 0 {
+			if strings.HasSuffix(r.URL.String(), "cursor/"+cursor) && r.Method == "PUT" {
+				w.WriteHeader(200)
+			} else {
+				w.WriteHeader(404)
+			}
+		} else {
+			w.WriteHeader(status)
+		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, bodies[0])
-		statuses, bodies = statuses[1:], bodies[1:]
+		fmt.Fprintln(w, bodies[i])
+		i++
 	})
 }
