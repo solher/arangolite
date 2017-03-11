@@ -20,11 +20,9 @@ func NewTransaction(readCol, writeCol []string) *Transaction {
 	if readCol == nil {
 		readCol = []string{}
 	}
-
 	if writeCol == nil {
 		writeCol = []string{}
 	}
-
 	return &Transaction{readCol: readCol, writeCol: writeCol}
 }
 
