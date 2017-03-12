@@ -1,58 +1,74 @@
 package arangolite
 
-type errUniqueBehavior interface {
+type statusCodedError struct {
 	error
-	IsErrUnique()
+	statusCode int
 }
 
-type errUnique struct{ error }
-
-func (err errUnique) IsErrUnique() {}
-
-func withErrUnique(err error) error {
-	return errUnique{err}
+func withStatusCode(err error, statusCode int) error {
+	return statusCodedError{err, statusCode}
 }
 
-// IsErrUnique returns true when error message contains "unique constraint violated" string.
+// HasStatusCode returns true when one of the given error status code matches the one returned by the database.
+func HasStatusCode(err error, statusCode ...int) bool {
+	e, ok := err.(statusCodedError)
+	if !ok {
+		return false
+	}
+	for _, num := range statusCode {
+		if e.statusCode == num {
+			return true
+		}
+	}
+	return false
+}
+
+type numberedError struct {
+	error
+	errorNum int
+}
+
+func withErrorNum(err error, errorNum int) error {
+	return numberedError{err, errorNum}
+}
+
+// HasErrorNum returns true when one of the given error num matches the one returned by the database.
+func HasErrorNum(err error, errorNum ...int) bool {
+	e, ok := err.(numberedError)
+	if !ok {
+		return false
+	}
+	for _, num := range errorNum {
+		if e.errorNum == num {
+			return true
+		}
+	}
+	return false
+}
+
+// IsErrInvalidRequest returns true when the database returns a 400.
+func IsErrInvalidRequest(err error) bool {
+	return HasStatusCode(err, 400)
+}
+
+// IsErrUnauthorized returns true when the database returns a 401.
+func IsErrUnauthorized(err error) bool {
+	return HasStatusCode(err, 401)
+}
+
+// IsErrForbidden returns true when the database returns a 403.
+func IsErrForbidden(err error) bool {
+	return HasStatusCode(err, 403)
+}
+
+// IsErrUnique returns true when the error num is a 1210 - ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED.
 func IsErrUnique(err error) bool {
-	_, ok := err.(errUniqueBehavior)
-	return ok
+	return HasErrorNum(err, 1210)
 }
 
-type errNotFoundBehavior interface {
-	error
-	IsErrNotFound()
-}
-
-type errNotFound struct{ error }
-
-func (err errNotFound) IsErrNotFound() {}
-
-func withErrNotFound(err error) error {
-	return errNotFound{err}
-}
-
-// IsErrNotFound returns true when error message contains "not found" or "unknown collection" string.
+// IsErrNotFound returns true when the database returns a 404 or when the error num is:
+// 1202 - ERROR_ARANGO_DOCUMENT_NOT_FOUND
+// 1203 - ERROR_ARANGO_COLLECTION_NOT_FOUND
 func IsErrNotFound(err error) bool {
-	_, ok := err.(errNotFoundBehavior)
-	return ok
-}
-
-type errDuplicateBehavior interface {
-	error
-	IsErrDuplicate()
-}
-
-type errDuplicate struct{ error }
-
-func (err errDuplicate) IsErrDuplicate() {}
-
-func withErrDuplicate(err error) error {
-	return errDuplicate{err}
-}
-
-// IsErrDuplicate returns true when error message contains "duplicate name" string.
-func IsErrDuplicate(err error) bool {
-	_, ok := err.(errDuplicateBehavior)
-	return ok
+	return HasStatusCode(err, 404) || HasErrorNum(err, 1202, 1203)
 }

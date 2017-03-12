@@ -30,7 +30,10 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		res.Body.Close()
-		return nil, errors.Errorf("the database HTTP request failed, status code %d", res.StatusCode)
+		return nil, withStatusCode(
+			errors.Errorf("the database HTTP request failed, status code %d", res.StatusCode),
+			res.StatusCode,
+		)
 	}
 
 	raw, err := ioutil.ReadAll(res.Body)
@@ -50,6 +53,7 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 type parsedResponse struct {
 	Error        bool            `json:"error"`
 	ErrorMessage string          `json:"errorMessage"`
+	ErrorNum     int             `json:"errorNum"`
 	Result       json.RawMessage `json:"result"`
 	HasMore      bool            `json:"hasMore"`
 	ID           string          `json:"id"`

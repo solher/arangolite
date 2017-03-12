@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -187,15 +186,9 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 		return nil, err
 	}
 	if res.parsed.Error {
-		err = errors.Wrap(errors.New(res.parsed.ErrorMessage), "the database returned an error")
-		switch {
-		case strings.Contains(res.parsed.ErrorMessage, "unique constraint violated"):
-			err = withErrUnique(err)
-		case strings.Contains(res.parsed.ErrorMessage, "not found") || strings.Contains(res.parsed.ErrorMessage, "unknown collection"):
-			err = withErrNotFound(err)
-		case strings.Contains(res.parsed.ErrorMessage, "duplicate name"):
-			err = withErrDuplicate(err)
-		}
+		err = errors.Wrap(errors.New(res.parsed.ErrorMessage), "the database execution returned an error")
+		err = withErrorNum(err, res.parsed.ErrorNum)
+		err = withStatusCode(err, res.statusCode)
 	}
 	// We also return the response in the case of a database error so the user
 	// can eventually do something with it
