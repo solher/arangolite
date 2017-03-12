@@ -27,11 +27,19 @@ func OptHost(host, port string) Option {
 	}
 }
 
-// OptCredentials sets the username and password used to access the database.
-func OptCredentials(username, password string) Option {
+// OptBasicAuth sets the username and password used to access the database
+// using basic authentication.
+func OptBasicAuth(username, password string) Option {
 	return func(db *Database) {
-		db.username = username
-		db.password = password
+		db.auth = &basicAuth{username: username, password: password}
+	}
+}
+
+// OptJWTAuth sets the username and password used to access the database
+// using JWT authentication.
+func OptJWTAuth(username, password string) Option {
+	return func(db *Database) {
+		db.auth = &jwtAuth{username: username, password: password}
 	}
 }
 
@@ -75,14 +83,18 @@ type Runnable interface {
 type Response interface {
 	// The raw response from the database.
 	Raw() json.RawMessage
-	// The raw response result.
+	// The raw response result, if present.
 	RawResult() json.RawMessage
+	// The response HTTP status code.
+	StatusCode() int
 	// HasMore indicates if a next result page is available.
 	HasMore() bool
 	// The cursor ID if more result pages are available.
 	Cursor() string
-	// Unmarshal decodes the value of the Content field into the given object.
+	// Unmarshal decodes the response into the given object.
 	Unmarshal(v interface{}) error
+	// UnmarshalResult decodes the value of the Result field into the given object, if present.
+	UnmarshalResult(v interface{}) error
 }
 
 // Database represents an access to an ArangoDB database.
@@ -92,6 +104,7 @@ type Database struct {
 	dbName             string
 	cli                *http.Client
 	sender             sender
+	auth               authentication
 }
 
 // NewDatabase returns a new Database object.
@@ -117,6 +130,7 @@ func NewDatabase(opts ...Option) *Database {
 			Timeout: 10 * time.Minute,
 		},
 		sender: &basicSender{},
+		auth:   &basicAuth{},
 	}
 
 	for _, opt := range opts {
@@ -126,7 +140,7 @@ func NewDatabase(opts ...Option) *Database {
 	return db
 }
 
-// Run runs the Runnable, follows the query cursor if needed and unmarshal
+// Run runs the Runnable, follows the query cursor if any and unmarshal
 // the result in the given object.
 func (db *Database) Run(q Runnable, v interface{}) error {
 	if q == nil {
@@ -146,8 +160,7 @@ func (db *Database) Run(q Runnable, v interface{}) error {
 	return json.Unmarshal(result, v)
 }
 
-// Send runs the Runnable and returns a Response that allows the user to
-// have more control and handle pagination manually.
+// Send runs the Runnable and returns a "raw" Response object.
 func (db *Database) Send(q Runnable) (Response, error) {
 	if q == nil {
 		return &response{}, nil
@@ -162,7 +175,9 @@ func (db *Database) Send(q Runnable) (Response, error) {
 		return nil, errors.Wrap(err, "the http request generation failed")
 	}
 
-	req.SetBasicAuth(db.username, db.password)
+	if err := db.auth.Apply(req); err != nil {
+		return nil, errors.Wrap(err, "authentication returned an error")
+	}
 
 	res, err := db.sender.Send(db.cli, req)
 	if err != nil {

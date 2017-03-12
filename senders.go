@@ -37,21 +37,21 @@ func (s *basicSender) Send(cli *http.Client, req *http.Request) (*response, erro
 	}
 
 	raw = []byte(strings.TrimSpace(string(raw)))
-	return &response{raw: raw, parsed: parsed}, nil
+	return &response{statusCode: res.StatusCode, raw: raw, parsed: parsed}, nil
 }
 
 type parsedResponse struct {
 	Error        bool            `json:"error"`
 	ErrorMessage string          `json:"errorMessage"`
 	Result       json.RawMessage `json:"result"`
-	Cached       bool            `json:"cached"`
 	HasMore      bool            `json:"hasMore"`
 	ID           string          `json:"id"`
 }
 
 type response struct {
-	raw    json.RawMessage
-	parsed parsedResponse
+	statusCode int
+	raw        json.RawMessage
+	parsed     parsedResponse
 }
 
 func (r *response) Raw() json.RawMessage {
@@ -60,6 +60,10 @@ func (r *response) Raw() json.RawMessage {
 
 func (r *response) RawResult() json.RawMessage {
 	return r.parsed.Result
+}
+
+func (r *response) StatusCode() int {
+	return r.statusCode
 }
 
 func (r *response) HasMore() bool {
@@ -72,4 +76,8 @@ func (r *response) Cursor() string {
 
 func (r *response) Unmarshal(v interface{}) error {
 	return json.Unmarshal(r.raw, v)
+}
+
+func (r *response) UnmarshalResult(v interface{}) error {
+	return json.Unmarshal(r.parsed.Result, v)
 }
