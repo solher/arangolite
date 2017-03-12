@@ -188,6 +188,11 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 	if res.parsed.Error {
 		err = errors.Wrap(errors.New(res.parsed.ErrorMessage), "the database execution returned an error")
 		err = withErrorNum(err, res.parsed.ErrorNum)
+	}
+	if res.statusCode < 200 || res.statusCode >= 300 {
+		if err != nil {
+			err = errors.Errorf("the database HTTP request failed, status code %d", res.statusCode)
+		}
 		err = withStatusCode(err, res.statusCode)
 	}
 	// We also return the response in the case of a database error so the user

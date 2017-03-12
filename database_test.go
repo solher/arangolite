@@ -1,6 +1,7 @@
 package arangolite_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -45,7 +46,7 @@ func TestOptionsSend(t *testing.T) {
 		// Arguments
 		username, password string
 		dbName             string
-		host, port         string
+		endpoint           string
 		httpClient         *http.Client
 		logger             *log.Logger
 		verbosity          arangolite.LogVerbosity
@@ -55,8 +56,8 @@ func TestOptionsSend(t *testing.T) {
 		{
 			description: "zero/nil parameters",
 			username:    "", password: "",
-			dbName: "",
-			host:   "", port: "",
+			dbName:     "",
+			endpoint:   "",
 			httpClient: nil,
 			logger:     nil,
 			verbosity:  0,
@@ -65,8 +66,8 @@ func TestOptionsSend(t *testing.T) {
 		{
 			description: "parameters correctly set",
 			username:    "foo", password: "bar",
-			dbName: "foobar",
-			host:   "foobar", port: "80",
+			dbName:     "foobar",
+			endpoint:   "http://foobar:80",
 			httpClient: client,
 			logger:     logger,
 			verbosity:  arangolite.LogDebug,
@@ -74,16 +75,17 @@ func TestOptionsSend(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			db := arangolite.NewDatabase(
-				arangolite.OptCredentials(tc.username, tc.password),
+				arangolite.OptBasicAuth(tc.username, tc.password),
 				arangolite.OptDatabaseName(tc.dbName),
-				arangolite.OptHost(tc.host, tc.port),
+				arangolite.OptEndpoint(tc.endpoint),
 				arangolite.OptHTTPClient(tc.httpClient),
 				arangolite.OptLogging(tc.logger, tc.verbosity),
 			)
-			_, err := db.Send(requests.NewAQL(""))
+			_, err := db.Send(ctx, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
 			}
@@ -126,6 +128,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			db := arangolite.NewDatabase(
@@ -133,7 +136,7 @@ func TestRun(t *testing.T) {
 			)
 			server.Config.Handler = tc.dbHandler
 			documents := []arangolite.Document{}
-			err := db.Run(requests.NewAQL(""), &documents)
+			err := db.Run(ctx, requests.NewAQL(""), &documents)
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
 			}
@@ -168,12 +171,6 @@ func TestSend(t *testing.T) {
 			raw:         nil,
 		},
 		{
-			description: "database returns an invalid json",
-			dbHandler:   handler(200, "{"),
-			testErr:     func(err error) bool { return err != nil },
-			raw:         nil,
-		},
-		{
 			description: "database execution returns an error",
 			dbHandler:   handler(200, `{"error": true, "errorMessage": "something happened"}`),
 			testErr:     func(err error) bool { return strings.Contains(err.Error(), "something happened") },
@@ -181,20 +178,32 @@ func TestSend(t *testing.T) {
 		},
 		{
 			description: "database execution returns a unique constraint error",
-			dbHandler:   handler(200, `{"error": true, "errorMessage": "unique constraint violated"}`),
+			dbHandler:   handler(200, `{"error": true, "errorMessage": "unique constraint violated", "errorNum": 1210}`),
 			testErr:     func(err error) bool { return arangolite.IsErrUnique(err) },
 			raw:         nil,
 		},
 		{
 			description: "database execution returns a not found error",
-			dbHandler:   handler(200, `{"error": true, "errorMessage": "not found"}`),
+			dbHandler:   handler(404, ``),
 			testErr:     func(err error) bool { return arangolite.IsErrNotFound(err) },
 			raw:         nil,
 		},
 		{
-			description: "database execution returns a duplicate error",
-			dbHandler:   handler(200, `{"error": true, "errorMessage": "duplicate name"}`),
-			testErr:     func(err error) bool { return arangolite.IsErrDuplicate(err) },
+			description: "database execution returns an unauthorized error",
+			dbHandler:   handler(401, ``),
+			testErr:     func(err error) bool { return arangolite.IsErrUnauthorized(err) },
+			raw:         nil,
+		},
+		{
+			description: "database execution returns a forbidden error",
+			dbHandler:   handler(403, ``),
+			testErr:     func(err error) bool { return arangolite.IsErrForbidden(err) },
+			raw:         nil,
+		},
+		{
+			description: "database execution returns a bad request error",
+			dbHandler:   handler(400, ``),
+			testErr:     func(err error) bool { return arangolite.IsErrInvalidRequest(err) },
 			raw:         nil,
 		},
 		{
@@ -215,13 +224,14 @@ func TestSend(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			db := arangolite.NewDatabase(
 				arangolite.OptHTTPClient(client),
 			)
 			server.Config.Handler = tc.dbHandler
-			result, err := db.Send(requests.NewAQL(""))
+			result, err := db.Send(ctx, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
 			}

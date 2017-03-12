@@ -1,10 +1,14 @@
 package arangolite
 
-import "net/http"
-import "github.com/solher/arangolite/requests"
+import (
+	"context"
+	"net/http"
+
+	"github.com/solher/arangolite/requests"
+)
 
 type authentication interface {
-	Setup(db *Database) error
+	Setup(ctx context.Context, db *Database) error
 	Apply(req *http.Request) error
 }
 
@@ -12,7 +16,7 @@ type basicAuth struct {
 	username, password string
 }
 
-func (a *basicAuth) Setup(db *Database) error {
+func (a *basicAuth) Setup(ctx context.Context, db *Database) error {
 	return nil
 }
 
@@ -26,8 +30,8 @@ type jwtAuth struct {
 	jwt                string
 }
 
-func (a *jwtAuth) Setup(db *Database) error {
-	res, err := db.Send(&requests.JWTAuth{Username: a.username, Password: a.password})
+func (a *jwtAuth) Setup(ctx context.Context, db *Database) error {
+	res, err := db.Send(ctx, &requests.JWTAuth{Username: a.username, Password: a.password})
 	if err != nil {
 		return err
 	}

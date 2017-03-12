@@ -28,13 +28,6 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	if err != nil {
 		return nil, errors.Wrap(err, "the database HTTP request failed")
 	}
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		res.Body.Close()
-		return nil, withStatusCode(
-			errors.Errorf("the database HTTP request failed, status code %d", res.StatusCode),
-			res.StatusCode,
-		)
-	}
 
 	raw, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
@@ -42,9 +35,7 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 		return nil, errors.Wrap(err, "could not read the database response")
 	}
 	parsed := parsedResponse{}
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return nil, errors.Wrap(err, "database response decoding failed")
-	}
+	json.Unmarshal(raw, &parsed)
 
 	raw = []byte(strings.TrimSpace(string(raw)))
 	return &response{statusCode: res.StatusCode, raw: raw, parsed: parsed}, nil
