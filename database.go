@@ -3,6 +3,7 @@ package arangolite
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,11 +20,10 @@ import (
 // Option sets an option for the database connection.
 type Option func(db *Database)
 
-// OptHost sets the host and the port used to access the database.
-func OptHost(host, port string) Option {
+// OptEndpoint sets the endpoint used to access the database.
+func OptEndpoint(endpoint string) Option {
 	return func(db *Database) {
-		db.host = host
-		db.port = port
+		db.endpoint = endpoint
 	}
 }
 
@@ -51,6 +51,7 @@ func OptDatabaseName(dbName string) Option {
 }
 
 // OptHTTPClient sets the HTTP client used to interact with the database.
+// It is also the current solution to set a custom TLS config.
 func OptHTTPClient(cli *http.Client) Option {
 	return func(db *Database) {
 		if cli != nil {
@@ -99,24 +100,21 @@ type Response interface {
 
 // Database represents an access to an ArangoDB database.
 type Database struct {
-	host, port         string
-	username, password string
-	dbName             string
-	cli                *http.Client
-	sender             sender
-	auth               authentication
+	endpoint string
+	dbName   string
+	cli      *http.Client
+	sender   sender
+	auth     authentication
 }
 
 // NewDatabase returns a new Database object.
 func NewDatabase(opts ...Option) *Database {
 	db := &Database{
-		host:   "localhost",
-		port:   "8529",
-		dbName: "_system",
+		endpoint: "http://localhost:8529",
+		dbName:   "_system",
 		// These Transport parameters are derived from github.com/hashicorp/go-cleanhttp which is under Mozilla Public License.
 		cli: &http.Client{
 			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
 					Timeout:   30 * time.Second,
 					KeepAlive: 30 * time.Second,
@@ -133,26 +131,31 @@ func NewDatabase(opts ...Option) *Database {
 		auth:   &basicAuth{},
 	}
 
-	for _, opt := range opts {
-		opt(db)
-	}
+	db.Options(opts...)
 
 	return db
 }
 
+// Options apply options to the database.
+func (db *Database) Options(opts ...Option) {
+	for _, opt := range opts {
+		opt(db)
+	}
+}
+
 // Run runs the Runnable, follows the query cursor if any and unmarshal
 // the result in the given object.
-func (db *Database) Run(q Runnable, v interface{}) error {
+func (db *Database) Run(ctx context.Context, q Runnable, v interface{}) error {
 	if q == nil {
 		return nil
 	}
 
-	r, err := db.Send(q)
+	r, err := db.Send(ctx, q)
 	if err != nil {
 		return err
 	}
 
-	result, err := db.followCursor(r)
+	result, err := db.followCursor(ctx, r)
 	if err != nil {
 		return errors.Wrap(err, "could not follow the query cursor")
 	}
@@ -161,14 +164,14 @@ func (db *Database) Run(q Runnable, v interface{}) error {
 }
 
 // Send runs the Runnable and returns a "raw" Response object.
-func (db *Database) Send(q Runnable) (Response, error) {
+func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 	if q == nil {
 		return &response{}, nil
 	}
 
 	req, err := http.NewRequest(
 		q.Method(),
-		fmt.Sprintf("http://%s:%s/_db/%s/%s", db.host, db.port, db.dbName, q.Path()),
+		fmt.Sprintf("%s/_db/%s/%s", db.endpoint, db.dbName, q.Path()),
 		bytes.NewBuffer(q.Generate()),
 	)
 	if err != nil {
@@ -179,7 +182,7 @@ func (db *Database) Send(q Runnable) (Response, error) {
 		return nil, errors.Wrap(err, "authentication returned an error")
 	}
 
-	res, err := db.sender.Send(db.cli, req)
+	res, err := db.sender.Send(ctx, db.cli, req)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +204,7 @@ func (db *Database) Send(q Runnable) (Response, error) {
 
 // followCursor follows the cursor of the given response and returns
 // all elements of every batch returned by the database.
-func (db *Database) followCursor(r Response) ([]byte, error) {
+func (db *Database) followCursor(ctx context.Context, r Response) ([]byte, error) {
 	// If the result isn't a JSON array, we only return the first batch.
 	if len(r.RawResult()) == 0 || r.RawResult()[0] != '[' {
 		return r.RawResult(), nil
@@ -214,7 +217,7 @@ func (db *Database) followCursor(r Response) ([]byte, error) {
 	var err error
 
 	for r.HasMore() {
-		r, err = db.Send(q)
+		r, err = db.Send(ctx, q)
 		if err != nil {
 			return nil, err
 		}

@@ -1,6 +1,7 @@
 package arangolite
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -11,12 +12,18 @@ import (
 )
 
 type sender interface {
-	Send(cli *http.Client, req *http.Request) (*response, error)
+	Send(ctx context.Context, cli *http.Client, req *http.Request) (*response, error)
 }
 
 type basicSender struct{}
 
-func (s *basicSender) Send(cli *http.Client, req *http.Request) (*response, error) {
+func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Request) (*response, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		break
+	}
 	res, err := cli.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "the database HTTP request failed")
