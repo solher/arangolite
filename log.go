@@ -1,6 +1,7 @@
 package arangolite
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -32,7 +33,7 @@ type loggingSender struct {
 	verbosity LogVerbosity
 }
 
-func (s *loggingSender) Send(cli *http.Client, req *http.Request) (*response, error) {
+func (s *loggingSender) Send(ctx context.Context, cli *http.Client, req *http.Request) (*response, error) {
 	if s.verbosity == LogDebug {
 		r, _ := httputil.DumpRequestOut(req, true)
 		s.logger.Println("Request:")
@@ -41,7 +42,7 @@ func (s *loggingSender) Send(cli *http.Client, req *http.Request) (*response, er
 
 	now := time.Now()
 
-	res, err := s.sender.Send(cli, req)
+	res, err := s.sender.Send(ctx, cli, req)
 	if err != nil {
 		s.logger.Printf("Send error: %s\n", err.Error())
 		return nil, err
