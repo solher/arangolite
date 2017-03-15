@@ -265,7 +265,7 @@ func (c *GetCollectionInfo) Generate() []byte {
 type ImportCollection struct {
 	CollectionName string
 	Data           []byte
-	Update         bool
+	OnDuplicate    string
 }
 
 func (c *ImportCollection) Description() string {
@@ -273,8 +273,8 @@ func (c *ImportCollection) Description() string {
 }
 
 func (c *ImportCollection) Path() string {
-	if c.Update {
-		return "/_api/import/?type=auto&update=true&collection=" + c.CollectionName
+	if c.OnDuplicate != "" {
+		return "/_api/import/?type=auto&onDuplicate=" + c.OnDuplicate + "&collection=" + c.CollectionName
 	}
 
 	return "/_api/import/?type=auto&collection=" + c.CollectionName
