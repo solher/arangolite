@@ -5,7 +5,6 @@ import (
 	"strconv"
 )
 
-
 // DATABASE
 
 // CreateDatabase creates a new database.
@@ -205,23 +204,19 @@ func (r *GetCacheProperties) Generate() []byte {
 	return nil
 }
 
-
-
-
 type CollectionInfo struct {
-	Id string        `json:"id"`
-	Name string       `json:"name"`
-	IsSystem bool       `json:"isSystem"`
-	Status int        `json:"status"`
-	Type int          `json:"type"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	IsSystem bool   `json:"isSystem"`
+	Status   int    `json:"status"`
+	Type     int    `json:"type"`
 }
 
 type CollectionInfoList struct {
-	Collections []CollectionInfo    `json:"collections"`
-	Error bool                      `json:"error"`
-	Code int      `json:"code"`
+	Collections []CollectionInfo `json:"collections"`
+	Error       bool             `json:"error"`
+	Code        int              `json:"code"`
 }
-
 
 // ListCollections lists all collections from the current DB
 type ListCollections struct {
@@ -247,7 +242,7 @@ func (c *ListCollections) Generate() []byte {
 // CollectionInfo gets information about the collection
 type GetCollectionInfo struct {
 	CollectionName string
-	IncludeSystem bool
+	IncludeSystem  bool
 }
 
 func (c *GetCollectionInfo) Description() string {
@@ -270,6 +265,7 @@ func (c *GetCollectionInfo) Generate() []byte {
 type ImportCollection struct {
 	CollectionName string
 	Data           []byte
+	Update         bool
 }
 
 func (c *ImportCollection) Description() string {
@@ -277,6 +273,10 @@ func (c *ImportCollection) Description() string {
 }
 
 func (c *ImportCollection) Path() string {
+	if c.Update {
+		return "/_api/import/?type=auto&update=true&collection=" + c.CollectionName
+	}
+
 	return "/_api/import/?type=auto&collection=" + c.CollectionName
 }
 
