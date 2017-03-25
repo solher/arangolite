@@ -18,6 +18,62 @@ import (
 	"github.com/solher/arangolite/requests"
 )
 
+// TestConnect runs tests on the database Connect method.
+func TestConnect(t *testing.T) {
+	client, server := httpMock()
+	defer server.Close()
+
+	var testCases = []struct {
+		// Case description
+		description string
+		// Arguments
+		dbHandler http.HandlerFunc
+		auth      arangolite.Option
+		// Expected results
+		testErr func(err error) bool
+	}{
+		{
+			description: "database returns a 401",
+			dbHandler:   connectHandler(0, ``),
+			auth:        arangolite.OptBasicAuth("foo", "invalid"),
+			testErr:     func(err error) bool { return arangolite.IsErrUnauthorized(err) },
+		},
+		{
+			description: "database returns a 200",
+			dbHandler:   connectHandler(0, ``),
+			auth:        arangolite.OptBasicAuth("foo", "bar"),
+			testErr:     func(err error) bool { return err == nil },
+		},
+		{
+			description: "jwt login fails",
+			dbHandler:   connectHandler(401, ``),
+			auth:        arangolite.OptJWTAuth("foo", "bar"),
+			testErr:     func(err error) bool { return arangolite.IsErrUnauthorized(err) },
+		},
+		{
+			description: "database returns a 200 for jwt",
+			dbHandler:   connectHandler(200, ``),
+			auth:        arangolite.OptJWTAuth("foo", "bar"),
+			testErr:     func(err error) bool { return err == nil },
+		},
+	}
+
+	ctx := context.Background()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			server.Config.Handler = tc.dbHandler
+			db := arangolite.NewDatabase(
+				arangolite.OptHTTPClient(client),
+				tc.auth,
+			)
+			err := db.Connect(ctx)
+			if ok := tc.testErr(err); !ok {
+				t.Errorf("unexpected error: %s", err)
+			}
+		})
+	}
+}
+
 // TestOptionsSend runs tests on the impact of options on the database Send method.
 func TestOptionsSend(t *testing.T) {
 	logger := log.New(ioutil.Discard, "", 0)
@@ -90,7 +146,7 @@ func TestOptionsSend(t *testing.T) {
 	}
 }
 
-// TestSend runs tests on the database Send method.
+// TestRun runs tests on the database Run method.
 func TestRun(t *testing.T) {
 	client, server := httpMock()
 	defer server.Close()
@@ -227,10 +283,8 @@ func TestSend(t *testing.T) {
 			server.Config.Handler = tc.dbHandler
 			db := arangolite.NewDatabase(
 				arangolite.OptHTTPClient(client),
+				arangolite.OptLogging(log.New(ioutil.Discard, "", 0), arangolite.LogDebug),
 			)
-			if err := db.Connect(ctx); err != nil {
-				t.Errorf("connection error: %s", err)
-			}
 			result, err := db.Send(ctx, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
@@ -269,11 +323,6 @@ func httpMock() (*http.Client, *httptest.Server) {
 
 func handler(status int, body string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, (&requests.CurrentDatabase{}).Path()) {
-			w.WriteHeader(200)
-			return
-		}
-
 		if status == 200 {
 			w.Header().Set("Content-Type", "application/json")
 		}
@@ -285,11 +334,6 @@ func handler(status int, body string) http.HandlerFunc {
 func cursorHandler(status int, bodies []string, cursor string) http.HandlerFunc {
 	i := 0
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, (&requests.CurrentDatabase{}).Path()) {
-			w.WriteHeader(200)
-			return
-		}
-
 		if i > 0 {
 			if strings.HasSuffix(r.URL.String(), "cursor/"+cursor) && r.Method == "PUT" {
 				w.Header().Set("Content-Type", "application/json")
@@ -305,5 +349,29 @@ func cursorHandler(status int, bodies []string, cursor string) http.HandlerFunc 
 		}
 		fmt.Fprintln(w, bodies[i])
 		i++
+	})
+}
+
+func connectHandler(jwtStatus int, body string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, (&requests.JWTAuth{}).Path()) {
+			w.WriteHeader(jwtStatus)
+			w.Write([]byte(`{"jwt":"foobar"}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, (&requests.CurrentDatabase{}).Path()) {
+			if user, pass, ok := r.BasicAuth(); ok {
+				if user == "foo" && pass == "bar" {
+					w.WriteHeader(200)
+					return
+				}
+			}
+			if h := r.Header.Get("Authorization"); h == "bearer foobar" {
+				w.WriteHeader(200)
+				return
+			}
+			w.WriteHeader(401)
+			return
+		}
 	})
 }
