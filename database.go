@@ -135,6 +135,17 @@ func NewDatabase(opts ...Option) *Database {
 	return db
 }
 
+// Connect setups the database connection and check the connectivity.
+func (db *Database) Connect(ctx context.Context) error {
+	if err := db.auth.Setup(ctx, db); err != nil {
+		return err
+	}
+	if _, err := db.Send(ctx, &requests.CurrentDatabase{}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Options apply options to the database.
 func (db *Database) Options(opts ...Option) {
 	for _, opt := range opts {
@@ -158,8 +169,14 @@ func (db *Database) Run(ctx context.Context, q Runnable, v interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "could not follow the query cursor")
 	}
+	if result == nil || len(result) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(result, v); err != nil {
+		return errors.Wrap(err, "run result unmarshalling failed")
+	}
 
-	return json.Unmarshal(result, v)
+	return nil
 }
 
 // Send runs the Runnable and returns a "raw" Response object.
@@ -190,21 +207,25 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 		err = withErrorNum(err, res.parsed.ErrorNum)
 	}
 	if res.statusCode < 200 || res.statusCode >= 300 {
-		if err != nil {
-			err = errors.Errorf("the database HTTP request failed, status code %d", res.statusCode)
+		if err == nil {
+			err = errors.Errorf("the database HTTP request failed: status code %d", res.statusCode)
 		}
 		err = withStatusCode(err, res.statusCode)
 	}
-	// We also return the response in the case of a database error so the user
-	// can eventually do something with it
-	return res, err
+	if err != nil {
+		// We also return the response in the case of a database error so the user
+		// can eventually do something with it
+		return res, err
+	}
+
+	return res, nil
 }
 
 // followCursor follows the cursor of the given response and returns
 // all elements of every batch returned by the database.
 func (db *Database) followCursor(ctx context.Context, r Response) ([]byte, error) {
-	// If the result isn't a JSON array, we only return the first batch.
-	if len(r.RawResult()) == 0 || r.RawResult()[0] != '[' {
+	// If the result only has one page or isn't a JSON array, we only return the first batch.
+	if !r.HasMore() || len(r.RawResult()) == 0 || r.RawResult()[0] != '[' {
 		return r.RawResult(), nil
 	}
 

@@ -34,8 +34,13 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read the database response")
 	}
+
 	parsed := parsedResponse{}
-	json.Unmarshal(raw, &parsed)
+	if strings.Contains(res.Header.Get("Content-Type"), "application/json") {
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, errors.Wrap(err, "could not decode the json database response")
+		}
+	}
 
 	raw = []byte(strings.TrimSpace(string(raw)))
 	return &response{statusCode: res.StatusCode, raw: raw, parsed: parsed}, nil
@@ -77,9 +82,15 @@ func (r *response) Cursor() string {
 }
 
 func (r *response) Unmarshal(v interface{}) error {
-	return json.Unmarshal(r.raw, v)
+	if err := json.Unmarshal(r.raw, v); err != nil {
+		return errors.Wrap(err, "response unmarshalling failed")
+	}
+	return nil
 }
 
 func (r *response) UnmarshalResult(v interface{}) error {
-	return json.Unmarshal(r.parsed.Result, v)
+	if err := json.Unmarshal(r.raw, v); err != nil {
+		return errors.Wrap(err, "response result unmarshalling failed")
+	}
+	return nil
 }

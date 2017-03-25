@@ -2,20 +2,17 @@ package arangolite_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 
-	"io/ioutil"
-
 	"strings"
-
-	"reflect"
-
-	"encoding/json"
 
 	"github.com/solher/arangolite"
 	"github.com/solher/arangolite/requests"
@@ -131,10 +128,10 @@ func TestRun(t *testing.T) {
 	ctx := context.Background()
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
+			server.Config.Handler = tc.dbHandler
 			db := arangolite.NewDatabase(
 				arangolite.OptHTTPClient(client),
 			)
-			server.Config.Handler = tc.dbHandler
 			documents := []arangolite.Document{}
 			err := db.Run(ctx, requests.NewAQL(""), &documents)
 			if ok := tc.testErr(err); !ok {
@@ -173,7 +170,7 @@ func TestSend(t *testing.T) {
 		{
 			description: "database execution returns an error",
 			dbHandler:   handler(200, `{"error": true, "errorMessage": "something happened"}`),
-			testErr:     func(err error) bool { return strings.Contains(err.Error(), "something happened") },
+			testErr:     func(err error) bool { return err != nil && strings.Contains(err.Error(), "something happened") },
 			raw:         nil,
 		},
 		{
@@ -227,10 +224,13 @@ func TestSend(t *testing.T) {
 	ctx := context.Background()
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
+			server.Config.Handler = tc.dbHandler
 			db := arangolite.NewDatabase(
 				arangolite.OptHTTPClient(client),
 			)
-			server.Config.Handler = tc.dbHandler
+			if err := db.Connect(ctx); err != nil {
+				t.Errorf("connection error: %s", err)
+			}
 			result, err := db.Send(ctx, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
@@ -269,8 +269,15 @@ func httpMock() (*http.Client, *httptest.Server) {
 
 func handler(status int, body string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, (&requests.CurrentDatabase{}).Path()) {
+			w.WriteHeader(200)
+			return
+		}
+
+		if status == 200 {
+			w.Header().Set("Content-Type", "application/json")
+		}
 		w.WriteHeader(status)
-		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, body)
 	})
 }
@@ -278,16 +285,24 @@ func handler(status int, body string) http.HandlerFunc {
 func cursorHandler(status int, bodies []string, cursor string) http.HandlerFunc {
 	i := 0
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, (&requests.CurrentDatabase{}).Path()) {
+			w.WriteHeader(200)
+			return
+		}
+
 		if i > 0 {
 			if strings.HasSuffix(r.URL.String(), "cursor/"+cursor) && r.Method == "PUT" {
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(200)
 			} else {
 				w.WriteHeader(404)
 			}
 		} else {
+			if status == 200 {
+				w.Header().Set("Content-Type", "application/json")
+			}
 			w.WriteHeader(status)
 		}
-		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, bodies[i])
 		i++
 	})

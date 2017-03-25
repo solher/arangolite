@@ -1,7 +1,6 @@
 package arangolite
 
 // Document represents a basic ArangoDB document
-// Fields are pointers to allow null values in ArangoDB
 type Document struct {
 	// The document handle. Format: ':collection/:key'
 	ID string `json:"_id,omitempty"`
@@ -12,7 +11,6 @@ type Document struct {
 }
 
 // Edge represents a basic ArangoDB edge
-// Fields are pointers to allow null values in ArangoDB
 type Edge struct {
 	Document
 	// Reference to another document. Format: ':collection/:key'

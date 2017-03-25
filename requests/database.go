@@ -5,6 +5,21 @@ import (
 	"fmt"
 )
 
+// CurrentDatabase retrieves information on the current database.
+type CurrentDatabase struct{}
+
+func (r *CurrentDatabase) Path() string {
+	return "/_api/database/current"
+}
+
+func (r *CurrentDatabase) Method() string {
+	return "GET"
+}
+
+func (r *CurrentDatabase) Generate() []byte {
+	return nil
+}
+
 // CreateDatabase creates a new database.
 type CreateDatabase struct {
 	Username string                   `json:"username,omitempty"`
