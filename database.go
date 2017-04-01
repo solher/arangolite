@@ -169,7 +169,7 @@ func (db *Database) Run(ctx context.Context, q Runnable, v interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "could not follow the query cursor")
 	}
-	if result == nil || len(result) == 0 {
+	if v == nil || result == nil || len(result) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(result, v); err != nil {
