@@ -105,19 +105,21 @@ func main() {
 
   // The Send method gives more control to the user and doesn't follow an eventual cursor.
   // It returns a raw result object.
-  nodes = []Node{}
   result, err := db.Send(ctx, r)
   if err != nil {
     log.Fatal(err)
   }
+	nodes = []Node{}
   result.UnmarshalResult(&nodes)
+
   for result.HasMore() {
     result, err = db.Send(ctx, &requests.FollowCursor{Cursor: result.Cursor()})
     if err != nil {
       log.Fatal(err)
     }
-    tmp := []Node{}
+		tmp := []Node{}
     result.UnmarshalResult(&tmp)
+
     nodes = append(nodes, tmp...)
   }
 
@@ -158,23 +160,23 @@ The only limitation is that no Javascript processing can be manually added insid
 ### Usage
 
 ```go
-  t := requests.NewTransaction([]string{"nodes"}, nil).
-    AddAQL("nodes", `
-      FOR n
-      IN nodes
-      RETURN n
-  `).
-    AddAQL("ids", `
-      FOR n
-      IN {{.nodes}}
-      RETURN n._id
-  `).
-    Return("ids")
+t := requests.NewTransaction([]string{"nodes"}, nil).
+	AddAQL("nodes", `
+		FOR n
+		IN nodes
+		RETURN n
+`).
+	AddAQL("ids", `
+		FOR n
+		IN {{.nodes}}
+		RETURN n._id
+`).
+	Return("ids")
 
-  ids := []string{}
-  if err := db.Run(ctx, ids, t); err != nil {
-    panic(err)
-  }
+ids := []string{}
+if err := db.Run(ctx, ids, t); err != nil {
+	panic(err)
+}
 ```
 
 ## Graphs
@@ -190,31 +192,31 @@ AQL may be used for querying graph data. But to manage graphs, Arangolite offers
 ### Usage
 
 ```go
-  // Check graph existence.
-  if err := db.Run(ctx, nil, &requests.GetGraph{Name: "graphName"}); err != nil {
-    switch {
-    case arangolite.IsErrNotFound(err):
-      // If graph does not exist, create a new one.
-      edgeDefinitions := []requests.EdgeDefinition{
-        {
-          Collection: "edgeCollectionName",
-          From:       []string{"firstCollectionName"},
-          To:         []string{"secondCollectionName"},
-        },
-      }
-      db.Run(ctx, nil, &requests.CreateGraph{Name: "graphName", EdgeDefinitions: edgeDefinitions})
-    default:
-      log.Fatal(err)
-    }
-  }
+// Check graph existence.
+if err := db.Run(ctx, nil, &requests.GetGraph{Name: "graphName"}); err != nil {
+	switch {
+	case arangolite.IsErrNotFound(err):
+		// If graph does not exist, create a new one.
+		edgeDefinitions := []requests.EdgeDefinition{
+			{
+				Collection: "edgeCollectionName",
+				From:       []string{"firstCollectionName"},
+				To:         []string{"secondCollectionName"},
+			},
+		}
+		db.Run(ctx, nil, &requests.CreateGraph{Name: "graphName", EdgeDefinitions: edgeDefinitions})
+	default:
+		log.Fatal(err)
+	}
+}
 
-  // List existing graphs.
-  list := &requests.GraphList{}
-  db.Run(ctx, list, &requests.ListGraphs{})
-  fmt.Printf("Graph list: %v\n", list)
+// List existing graphs.
+list := &requests.GraphList{}
+db.Run(ctx, list, &requests.ListGraphs{})
+fmt.Printf("Graph list: %v\n", list)
 
-  // Destroy the graph we just created, and the related collections.
-  db.Run(ctx, nil, &requests.DropGraph{Name: "graphName", DropCollections: true})
+// Destroy the graph we just created, and the related collections.
+db.Run(ctx, nil, &requests.DropGraph{Name: "graphName", DropCollections: true})
 ```
 
 ## Error Handling
