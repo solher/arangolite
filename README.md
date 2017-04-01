@@ -18,6 +18,8 @@ The new `v2.0.0` version is a major evolution. I brings (sadly) some breaking ch
 
 Fortunately, the API being relatively small, refactoring should take only a few adjustments and find and replaces :)
 
+Operations on database clusters are not yet implemented. PRs concerning cluster support would be greatly appreciated.
+
 ## Installation
 
 To install Arangolite:
