@@ -189,7 +189,7 @@ func TestRun(t *testing.T) {
 				arangolite.OptHTTPClient(client),
 			)
 			documents := []arangolite.Document{}
-			err := db.Run(ctx, requests.NewAQL(""), &documents)
+			err := db.Run(ctx, &documents, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
 			}

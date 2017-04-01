@@ -155,7 +155,7 @@ func (db *Database) Options(opts ...Option) {
 
 // Run runs the Runnable, follows the query cursor if any and unmarshal
 // the result in the given object.
-func (db *Database) Run(ctx context.Context, q Runnable, v interface{}) error {
+func (db *Database) Run(ctx context.Context, v interface{}, q Runnable) error {
 	if q == nil {
 		return nil
 	}
