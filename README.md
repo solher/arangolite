@@ -109,7 +109,7 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
-	nodes = []Node{}
+  nodes = []Node{}
   result.UnmarshalResult(&nodes)
 
   for result.HasMore() {
@@ -117,7 +117,7 @@ func main() {
     if err != nil {
       log.Fatal(err)
     }
-		tmp := []Node{}
+    tmp := []Node{}
     result.UnmarshalResult(&tmp)
 
     nodes = append(nodes, tmp...)
@@ -161,21 +161,21 @@ The only limitation is that no Javascript processing can be manually added insid
 
 ```go
 t := requests.NewTransaction([]string{"nodes"}, nil).
-	AddAQL("nodes", `
-		FOR n
-		IN nodes
-		RETURN n
+  AddAQL("nodes", `
+    FOR n
+    IN nodes
+    RETURN n
 `).
-	AddAQL("ids", `
-		FOR n
-		IN {{.nodes}}
-		RETURN n._id
+  AddAQL("ids", `
+    FOR n
+    IN {{.nodes}}
+    RETURN n._id
 `).
-	Return("ids")
+  Return("ids")
 
 ids := []string{}
 if err := db.Run(ctx, ids, t); err != nil {
-	panic(err)
+  log.Fatal(err)
 }
 ```
 
@@ -194,20 +194,20 @@ AQL may be used for querying graph data. But to manage graphs, Arangolite offers
 ```go
 // Check graph existence.
 if err := db.Run(ctx, nil, &requests.GetGraph{Name: "graphName"}); err != nil {
-	switch {
-	case arangolite.IsErrNotFound(err):
-		// If graph does not exist, create a new one.
-		edgeDefinitions := []requests.EdgeDefinition{
-			{
-				Collection: "edgeCollectionName",
-				From:       []string{"firstCollectionName"},
-				To:         []string{"secondCollectionName"},
-			},
-		}
-		db.Run(ctx, nil, &requests.CreateGraph{Name: "graphName", EdgeDefinitions: edgeDefinitions})
-	default:
-		log.Fatal(err)
-	}
+  switch {
+  case arangolite.IsErrNotFound(err):
+    // If graph does not exist, create a new one.
+    edgeDefinitions := []requests.EdgeDefinition{
+      {
+        Collection: "edgeCollectionName",
+        From:       []string{"firstCollectionName"},
+        To:         []string{"secondCollectionName"},
+      },
+    }
+    db.Run(ctx, nil, &requests.CreateGraph{Name: "graphName", EdgeDefinitions: edgeDefinitions})
+  default:
+    log.Fatal(err)
+  }
 }
 
 // List existing graphs.
