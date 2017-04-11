@@ -6,7 +6,7 @@ It focuses on pure AQL querying. See [AranGO](https://github.com/diegogub/aranGO
 
 ## V2.0.0 - Changelog
 
-The new `v2.0.0` version is a major evolution. I brings (sadly) some breaking changes and (happily) a lot of improvements:
+The new `v2.0.0` version is a major evolution. It brings (sadly) some breaking changes and (happily) a lot of improvements:
 
 - A less awkward API, more focused and I hope, clearer.
 - All the goroutine magic purely and simply deleted.
