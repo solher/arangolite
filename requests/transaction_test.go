@@ -61,6 +61,17 @@ func TestTransaction(t *testing.T) {
 			returnVar: "result",
 			output:    "{\"collections\":{\"read\":[],\"write\":[]},\"action\":\"function () { var db = require('internal').db; var documents = db._query(aqlQuery`FOR x IN documents RETURN x`).toArray(); var result = db._query(aqlQuery`FOR x IN ${documents} RETURN x`).toArray(); return result;}\"}",
 		},
+		{
+			description: "bind variables",
+			readCol:     []string{},
+			writeCol:    []string{},
+			bind:        map[string]interface{}{"city": "Los Angeles"},
+			aqls: []aqlParams{
+				{resultVar: "documents", query: `RETURN {name: @city}`},
+			},
+			returnVar: "documents",
+			output:    "{\"collections\":{\"read\":[],\"write\":[]},\"action\":\"function () { var db = require('internal').db; var city = 'Los Angeles'; var documents = db._query(aqlQuery`RETURN {name: ${city}}`).toArray(); return documents; }\"}",
+		},
 	}
 
 	for _, tc := range testCases {

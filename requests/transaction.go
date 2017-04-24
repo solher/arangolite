@@ -3,6 +3,7 @@ package requests
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -129,30 +130,8 @@ func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
 }
 
 func toES6Template(query string) string {
-	buf := bytes.NewBuffer(nil)
-	lookingForEnd := false
-
-	for _, b := range query {
-		if lookingForEnd {
-			if b == ' ' || b == '\n' || b == ',' || b == ';' {
-				lookingForEnd = false
-				buf.WriteRune('}')
-				buf.WriteRune(b)
-				continue
-			}
-		} else {
-			if b == '@' {
-				lookingForEnd = true
-				buf.WriteString("${")
-				continue
-			}
-		}
-
-		buf.WriteRune(b)
-	}
-
-	query = buf.String()
-
-	query = strings.Replace(query, "{{.", "${", -1)
-	return strings.Replace(query, "}}", "}", -1)
+	re := regexp.MustCompile(`\{\{\.(\w+)\}\}`)
+	bindRe := regexp.MustCompile(`@(\w+)`)
+	query = bindRe.ReplaceAllString(query, `${$1}`)
+	return re.ReplaceAllString(query, `${$1}`)
 }
