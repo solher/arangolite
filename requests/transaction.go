@@ -14,6 +14,8 @@ type Transaction struct {
 	queries           []AQL
 	returnVar         string
 	bindVars          map[string]string
+	lockTimeout       *int
+	waitForSync       *bool
 }
 
 // NewTransaction returns a new Transaction object.
@@ -64,6 +66,18 @@ func (t *Transaction) Return(resultVar string) *Transaction {
 	return t
 }
 
+// LockTimeout sets the optional lockTimeout value.
+func (t *Transaction) LockTimeout(lockTimeout int) *Transaction {
+	t.lockTimeout = &lockTimeout
+	return t
+}
+
+// WaitForSync sets the optional waitForSync flag.
+func (t *Transaction) WaitForSync(waitForSync bool) *Transaction {
+	t.waitForSync = &waitForSync
+	return t
+}
+
 func (t *Transaction) Path() string {
 	return "/_api/transaction"
 }
@@ -78,10 +92,12 @@ func (t *Transaction) Generate() []byte {
 			Read  []string `json:"read"`
 			Write []string `json:"write"`
 		} `json:"collections"`
-		Action string `json:"action"`
+		Action      string `json:"action"`
+		LockTimeout *int   `json:"lockTimeout,omitempty"`
+		WaitForSync *bool  `json:"waitForSync,omitempty"`
 	}
 
-	transactionFmt := &TransactionFmt{}
+	transactionFmt := &TransactionFmt{LockTimeout: t.lockTimeout, WaitForSync: t.waitForSync}
 	transactionFmt.Collections.Read = t.readCol
 	transactionFmt.Collections.Write = t.writeCol
 
@@ -129,9 +145,10 @@ func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
 	buff.WriteString("`).toArray(); ")
 }
 
+re := regexp.MustCompile(`\{\{\.(\w+)\}\}`)
+bindRe := regexp.MustCompile(`@(\w+)`)
+
 func toES6Template(query string) string {
-	re := regexp.MustCompile(`\{\{\.(\w+)\}\}`)
-	bindRe := regexp.MustCompile(`@(\w+)`)
 	query = bindRe.ReplaceAllString(query, `${$1}`)
 	return re.ReplaceAllString(query, `${$1}`)
 }

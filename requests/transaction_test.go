@@ -56,7 +56,7 @@ func TestTransaction(t *testing.T) {
 			writeCol:    []string{},
 			aqls: []aqlParams{
 				{resultVar: "documents", query: "FOR x IN documents RETURN x"},
-				{resultVar: "result", query: "FOR x IN {{.documents}} RETURN x"},
+				{resultVar: "result", query: "FOR x IN ${documents} RETURN x"},
 			},
 			returnVar: "result",
 			output:    "{\"collections\":{\"read\":[],\"write\":[]},\"action\":\"function () { var db = require('internal').db; var documents = db._query(aqlQuery`FOR x IN documents RETURN x`).toArray(); var result = db._query(aqlQuery`FOR x IN ${documents} RETURN x`).toArray(); return result;}\"}",
