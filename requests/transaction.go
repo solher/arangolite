@@ -145,8 +145,10 @@ func writeQuery(buff *bytes.Buffer, aql string, resultVarName string) {
 	buff.WriteString("`).toArray(); ")
 }
 
-re := regexp.MustCompile(`\{\{\.(\w+)\}\}`)
-bindRe := regexp.MustCompile(`@(\w+)`)
+var (
+	re     = regexp.MustCompile(`\{\{\.(\w+)\}\}`)
+	bindRe = regexp.MustCompile(`@(\w+)`)
+)
 
 func toES6Template(query string) string {
 	query = bindRe.ReplaceAllString(query, `${$1}`)
