@@ -16,7 +16,6 @@ The new `v2.0.0` version is a major evolution. It brings (sadly) some breaking c
 - Context support allowing request cancellation.
 - JWT support added.
 - More lightweight than ever.
-- Templating in transactions now follow the Javascript conventions to eliminate the need for parsing.
 - Filter generator moved to a separate repository: [Arangofilters](https://github.com/solher/arangofilters).
 
 Operations on database clusters are not yet implemented. PRs concerning cluster support would be greatly appreciated.
@@ -29,7 +28,6 @@ The API being relatively small, refactoring should take only a few adjustments a
 - Core running method calls have to be migrated to the new API.
 - The `Runnables` are moved to the `request` package (`arangolite.NewTransaction` -> `requests.NewTransaction`).
 - A `Query` is now explicitely `AQL` (`arangolite.NewQuery` -> `requests.NewAQL`, `.AddQuery` -> `.AddAQL`).
-- Update transactions with JS templating (`{{.}}` -> `${}`).
 
 ## Installation
 
@@ -168,7 +166,7 @@ type Edge struct {
 
 Arangolite provides an abstraction layer to the Javascript ArangoDB transactions.
 
-The only limitation is that no Javascript processing can be manually added inside the transaction. The queries can only be connected in an artificial way, using Javascript templating.
+The only limitation is that no Javascript processing can be manually added inside the transaction. The queries can be connected using the Go templating conventions.
 
 ### Usage
 
@@ -181,7 +179,7 @@ t := requests.NewTransaction([]string{"nodes"}, nil).
 `).
   AddAQL("ids", `
     FOR n
-    IN ${nodes}
+    IN {{.nodes}}
     RETURN n._id
 `).
   Return("ids")
