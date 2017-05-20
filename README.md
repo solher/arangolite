@@ -25,7 +25,7 @@ Operations on database clusters are not yet implemented. PRs concerning cluster 
 The API being relatively small, refactoring should take only a few adjustments and find and replaces.
 
 - Database initialisation has to follow the new API.
-- Core running method calls have to be migrated to the new API.
+- Core method calls have to be migrated to the new API.
 - The `Runnables` are moved to the `request` package (`arangolite.NewTransaction` -> `requests.NewTransaction`).
 - A `Query` is now explicitely `AQL` (`arangolite.NewQuery` -> `requests.NewAQL`, `.AddQuery` -> `.AddAQL`).
 
