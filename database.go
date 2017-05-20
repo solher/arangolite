@@ -1,299 +1,251 @@
-// Package arangolite provides a lightweight ArangoDB driver.
+// Package arangolite provides a lightweight ArangoDatabase driver.
 package arangolite
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"log"
+	"net"
 	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
+	"runtime"
 	"time"
 
-	"github.com/eapache/go-resiliency/retrier"
-	"gopkg.in/h2non/gentleman-retry.v1"
-	"gopkg.in/h2non/gentleman.v1"
-	"gopkg.in/h2non/gentleman.v1/context"
+	"github.com/pkg/errors"
+	"github.com/solher/arangolite/requests"
 )
 
-// DB represents an access to an ArangoDB database.
-type DB struct {
-	url, database, username, password string
-	conn                              *gentleman.Client
-	l                                 *logger
+// Option sets an option for the database connection.
+type Option func(db *Database)
+
+// OptEndpoint sets the endpoint used to access the database.
+func OptEndpoint(endpoint string) Option {
+	return func(db *Database) {
+		db.endpoint = endpoint
+	}
 }
 
-// New returns a new DB object.
-func New() *DB {
-	db := &DB{l: newLogger()}
+// OptBasicAuth sets the username and password used to access the database
+// using basic authentication.
+func OptBasicAuth(username, password string) Option {
+	return func(db *Database) {
+		db.auth = &basicAuth{username: username, password: password}
+	}
+}
 
-	cli := gentleman.New()
-	cli.Use(retry.New(retrier.New(retrier.ExponentialBackoff(3, 100*time.Millisecond), nil)))
-	cli.UseRequest(func(ctx *context.Context, h context.Handler) {
-		u, err := url.Parse(db.url)
-		if err != nil {
-			h.Error(ctx, err)
-			return
+// OptJWTAuth sets the username and password used to access the database
+// using JWT authentication.
+func OptJWTAuth(username, password string) Option {
+	return func(db *Database) {
+		db.auth = &jwtAuth{username: username, password: password}
+	}
+}
+
+// OptDatabaseName sets the name of the targeted database.
+func OptDatabaseName(dbName string) Option {
+	return func(db *Database) {
+		db.dbName = dbName
+	}
+}
+
+// OptHTTPClient sets the HTTP client used to interact with the database.
+// It is also the current solution to set a custom TLS config.
+func OptHTTPClient(cli *http.Client) Option {
+	return func(db *Database) {
+		if cli != nil {
+			db.cli = cli
 		}
-
-		ctx.Request.URL.Scheme = u.Scheme
-		ctx.Request.URL.Host = u.Host
-		ctx.Request.URL.Path = db.dbPath()
-		h.Next(ctx)
-	})
-	cli.UseRequest(func(ctx *context.Context, h context.Handler) {
-		ctx.Request.SetBasicAuth(db.username, db.password)
-		h.Next(ctx)
-	})
-
-	db.conn = cli
-
-	return db
+	}
 }
 
-// LoggerOptions sets the Arangolite logger options.
-func (db *DB) LoggerOptions(enabled, printQuery, printResult bool) *DB {
-	db.l.Options(enabled, printQuery, printResult)
-	return db
+// OptLogging enables logging of the exchanges with the database.
+func OptLogging(logger *log.Logger, verbosity LogVerbosity) Option {
+	return func(db *Database) {
+		if logger != nil {
+			db.sender = newLoggingSender(db.sender, logger, verbosity)
+		}
+	}
 }
 
-// Connect initialize a DB object with the database url and credentials.
-func (db *DB) Connect(url, database, username, password string) *DB {
-	db.url = url
-	db.database = database
-	db.username = username
-	db.password = password
-	return db
-}
-
-// SwitchDatabase change the current database.
-func (db *DB) SwitchDatabase(database string) *DB {
-	db.database = database
-	return db
-}
-
-// SwitchUser change the current user.
-func (db *DB) SwitchUser(username, password string) *DB {
-	db.username = username
-	db.password = password
-	return db
-}
-
-// Runnable defines requests runnable by the Run and RunAsync methods.
-// Queries, transactions and everything in the requests.go file are Runnable.
+// Runnable defines requests runnable by the Run and Send methods.
+// A Runnable library is located in the 'requests' package.
 type Runnable interface {
-	Description() string // Description shown in the logger
-	Generate() []byte    // The body of the request
-	Path() string        // The path where to send the request
-	Method() string      // The HTTP method to use
+	// The body of the request.
+	Generate() []byte
+	// The path where to send the request.
+	Path() string
+	// The HTTP method to use.
+	Method() string
 }
 
-// Run runs the Runnable synchronously and returns the JSON array of all elements
-// of every batch returned by the database.
-func (db *DB) Run(q Runnable) ([]byte, error) {
+// Response defines the response returned by the execution of a Runnable.
+type Response interface {
+	// The raw response from the database.
+	Raw() json.RawMessage
+	// The raw response result, if present.
+	RawResult() json.RawMessage
+	// The response HTTP status code.
+	StatusCode() int
+	// HasMore indicates if a next result page is available.
+	HasMore() bool
+	// The cursor ID if more result pages are available.
+	Cursor() string
+	// Unmarshal decodes the response into the given object.
+	Unmarshal(v interface{}) error
+	// UnmarshalResult decodes the value of the Result field into the given object, if present.
+	UnmarshalResult(v interface{}) error
+}
+
+// Database represents an access to an ArangoDB database.
+type Database struct {
+	endpoint string
+	dbName   string
+	cli      *http.Client
+	sender   sender
+	auth     authentication
+}
+
+// NewDatabase returns a new Database object.
+func NewDatabase(opts ...Option) *Database {
+	db := &Database{
+		endpoint: "http://localhost:8529",
+		dbName:   "_system",
+		// These Transport parameters are derived from github.com/hashicorp/go-cleanhttp which is under Mozilla Public License.
+		cli: &http.Client{
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+				MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
+			},
+			Timeout: 10 * time.Minute,
+		},
+		sender: &basicSender{},
+		auth:   &basicAuth{},
+	}
+
+	db.Options(opts...)
+
+	return db
+}
+
+// Connect setups the database connection and check the connectivity.
+func (db *Database) Connect(ctx context.Context) error {
+	if err := db.auth.Setup(ctx, db); err != nil {
+		return err
+	}
+	if _, err := db.Send(ctx, &requests.CurrentDatabase{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Options apply options to the database.
+func (db *Database) Options(opts ...Option) {
+	for _, opt := range opts {
+		opt(db)
+	}
+}
+
+// Run runs the Runnable, follows the query cursor if any and unmarshal
+// the result in the given object.
+func (db *Database) Run(ctx context.Context, v interface{}, q Runnable) error {
 	if q == nil {
-		return []byte{}, nil
+		return nil
 	}
 
-	r, err := db.RunAsync(q)
+	r, err := db.Send(ctx, q)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return db.syncResult(r), nil
+	result, err := db.followCursor(ctx, r)
+	if err != nil {
+		return errors.Wrap(err, "could not follow the query cursor")
+	}
+	if v == nil || result == nil || len(result) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(result, v); err != nil {
+		return errors.Wrap(err, "run result unmarshalling failed")
+	}
+
+	return nil
 }
 
-// RunAsync runs the Runnable asynchronously and returns an async Result object.
-func (db *DB) RunAsync(q Runnable) (*Result, error) {
+// Send runs the Runnable and returns a "raw" Response object.
+func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 	if q == nil {
-		return NewResult(nil), nil
+		return &response{}, nil
 	}
 
-	c, err := db.send(q.Description(), q.Method(), q.Path(), q.Generate())
+	req, err := http.NewRequest(
+		q.Method(),
+		fmt.Sprintf("%s/_db/%s/%s", db.endpoint, db.dbName, q.Path()),
+		bytes.NewBuffer(q.Generate()),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "the http request generation failed")
+	}
+
+	if err := db.auth.Apply(req); err != nil {
+		return nil, errors.Wrap(err, "authentication returned an error")
+	}
+
+	res, err := db.sender.Send(ctx, db.cli, req)
 	if err != nil {
 		return nil, err
 	}
-
-	return NewResult(c), nil
-}
-
-// Send runs a low level request in the database.
-// The description param is shown in the logger.
-// The req param is serialized in the body.
-// The purpose of this method is to be a fallback in case the user wants to do
-// something which is not implemented in the requests.go file.
-func (db *DB) Send(description, method, path string, req interface{}) ([]byte, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
+	if res.parsed.Error {
+		err = errors.Wrap(errors.New(res.parsed.ErrorMessage), "the database execution returned an error")
+		err = withErrorNum(err, res.parsed.ErrorNum)
 	}
-
-	c, err := db.send(description, method, path, body)
-	if err != nil {
-		return nil, err
-	}
-
-	return db.syncResult(NewResult(c)), nil
-}
-
-// send executes a request at the path passed as argument.
-// It returns a channel where the extracted content of each batch is returned.
-func (db *DB) send(description, method, path string, body []byte) (chan interface{}, error) {
-	in := make(chan interface{}, 16)
-	out := make(chan interface{}, 16)
-
-	url, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-
-	db.l.LogBegin(description, method, db.url+db.dbPath()+path, body)
-	start := time.Now()
-	path = url.EscapedPath()
-
-	req := db.conn.Request().
-		Method(method).
-		AddPath(path).
-		SetQueryParams(db.queryParams(url))
-
-	if body != nil {
-		req.Body(bytes.NewBuffer(body))
-	}
-
-	res, err := req.Send()
-	if err != nil {
-		db.l.LogError(err.Error(), start)
-		return nil, err
-	}
-
-	if !res.Ok && len(res.Bytes()) == 0 {
-		err := errors.New("the database returned a " + strconv.Itoa(res.StatusCode))
-
-		switch res.StatusCode {
-		case http.StatusUnauthorized:
-			err = errors.New("unauthorized: invalid credentials")
-		case http.StatusTemporaryRedirect:
-			err = errors.New("the database returned a 307 to " + res.Header.Get("Location"))
+	if res.statusCode < 200 || res.statusCode >= 300 {
+		if err == nil {
+			err = errors.Errorf("the database HTTP request failed: status code %d", res.statusCode)
 		}
-
-		db.l.LogError(err.Error(), start)
-
-		return nil, err
+		err = withStatusCode(err, res.statusCode)
 	}
-
-	result := &result{}
-	json.Unmarshal(res.Bytes(), result)
-
-	if result.Error {
-		db.l.LogError(result.ErrorMessage, start)
-		switch {
-		case strings.Contains(result.ErrorMessage, "unique constraint violated"):
-			return nil, &ErrUnique{result.ErrorMessage}
-		case strings.Contains(result.ErrorMessage, "not found"):
-			return nil, &ErrNotFound{result.ErrorMessage}
-		case strings.Contains(result.ErrorMessage, "unknown collection"):
-			return nil, &ErrNotFound{result.ErrorMessage}
-		case strings.Contains(result.ErrorMessage, "duplicate name"):
-			return nil, &ErrDuplicate{result.ErrorMessage}
-		default:
-			return nil, errors.New(result.ErrorMessage)
-		}
-	}
-
-	go db.l.LogResult(result.Cached, start, in, out)
-
-	if len(result.Content) != 0 {
-		in <- result.Content
-	} else {
-		in <- json.RawMessage(res.Bytes())
-	}
-
-	if result.HasMore {
-		go db.followCursor(path+"/"+result.ID, in)
-	} else {
-		in <- nil
-	}
-
-	return out, nil
-}
-
-// followCursor requests the cursor in database, put the result in the channel
-// and follow while more batches are available.
-func (db *DB) followCursor(path string, c chan interface{}) {
-	req := db.conn.Request().
-		Method("PUT").
-		AddPath(path)
-
-	res, err := req.Send()
 	if err != nil {
-		c <- err
-		return
+		// We also return the response in the case of a database error so the user
+		// can eventually do something with it
+		return res, err
 	}
 
-	result := &result{}
-	json.Unmarshal(res.Bytes(), result)
-
-	if result.Error {
-		c <- errors.New(result.ErrorMessage)
-		return
-	}
-
-	c <- result.Content
-
-	if result.HasMore {
-		go db.followCursor(path, c)
-	} else {
-		c <- nil
-	}
+	return res, nil
 }
 
-// syncResult synchronises the async result and returns all elements
-// of every batch returned by the database.
-func (db *DB) syncResult(async *Result) []byte {
-	r := async.Buffer()
-	async.HasMore()
-
-	// If the result isn't a JSON array, we only returns the first batch.
-	if len(r.Bytes()) == 0 || r.Bytes()[0] != '[' {
-		return r.Bytes()
+// followCursor follows the cursor of the given response and returns
+// all elements of every batch returned by the database.
+func (db *Database) followCursor(ctx context.Context, r Response) ([]byte, error) {
+	// If the result only has one page or isn't a JSON array, we only return the first batch.
+	if !r.HasMore() || len(r.RawResult()) == 0 || r.RawResult()[0] != '[' {
+		return r.RawResult(), nil
 	}
 
-	// If the result is a JSON array, we try to concatenate them all.
-	result := []byte{'['}
-	result = append(result, r.Bytes()[1:r.Len()-1]...)
-	result = append(result, ',')
+	buf := bytes.NewBuffer(r.RawResult()[:len(r.RawResult())-1])
+	buf.WriteRune(',')
 
-	for async.HasMore() {
-		if r.Len() == 0 {
-			continue
+	q := &requests.FollowCursor{Cursor: r.Cursor()}
+	var err error
+
+	for r.HasMore() {
+		r, err = db.Send(ctx, q)
+		if err != nil {
+			return nil, err
 		}
-		result = append(result, r.Bytes()[1:r.Len()-1]...)
-		result = append(result, ',')
+		buf.Write(r.RawResult()[1 : len(r.RawResult())-1])
+		buf.WriteRune(',')
 	}
 
-	if len(result) <= 1 {
-		return []byte{'[', ']'}
-	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteRune(']')
 
-	result = append(result[:len(result)-1], ']')
-
-	return result
-}
-
-func (db *DB) dbPath() string {
-	return "/_db/" + db.database
-}
-
-func (db *DB) queryParams(url *url.URL) map[string]string {
-	values := url.Query()
-	queryParams := map[string]string{}
-
-	for k, v := range values {
-		if len(v) > 0 {
-			queryParams[k] = v[0]
-		}
-	}
-
-	return queryParams
+	return buf.Bytes(), nil
 }
