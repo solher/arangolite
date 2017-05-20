@@ -108,7 +108,7 @@ func main() {
 
   // The Run method returns all the query results of every pages
   // available in the cursor and unmarshal it into the given struct.
-  // Cancelling the context cancels every running request.
+  // Cancelling the context cancels every running request. 
   nodes := []Node{}
   if err := db.Run(ctx, &nodes, r); err != nil {
     log.Fatal(err)
