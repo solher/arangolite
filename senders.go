@@ -89,7 +89,7 @@ func (r *response) Unmarshal(v interface{}) error {
 }
 
 func (r *response) UnmarshalResult(v interface{}) error {
-	if err := json.Unmarshal(r.raw, v); err != nil {
+	if err := json.Unmarshal(r.parsed.Result, v); err != nil {
 		return errors.Wrap(err, "response result unmarshalling failed")
 	}
 	return nil
