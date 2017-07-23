@@ -36,7 +36,7 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	}
 
 	parsed := parsedResponse{}
-	if strings.Contains(res.Header.Get("Content-Type"), "application/json") {
+	if strings.Contains(res.Header.Get("Content-Type"), "application/json") && raw[0] != '[' {
 		if err := json.Unmarshal(raw, &parsed); err != nil {
 			return nil, errors.Wrap(err, "could not decode the json database response")
 		}
