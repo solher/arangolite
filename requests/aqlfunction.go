@@ -8,7 +8,7 @@ import (
 type CreateAQLFunction struct {
 	Name            string `json:"name"`
 	Code            string `json:"code"`
-	IsDeterministic bool   `json:"IsDeterministic"`
+	IsDeterministic bool   `json:"isDeterministic"`
 }
 
 func (r *CreateAQLFunction) Path() string {
