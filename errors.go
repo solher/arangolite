@@ -1,12 +1,21 @@
 package arangolite
 
-type statusCodedError struct {
+type statusCodedError interface {
+	error
+	StatusCode() int
+}
+
+type statusCodedErrorBehavior struct {
 	error
 	statusCode int
 }
 
+func (e *statusCodedErrorBehavior) StatusCode() int {
+	return e.statusCode
+}
+
 func withStatusCode(err error, statusCode int) error {
-	return statusCodedError{err, statusCode}
+	return statusCodedErrorBehavior{err, statusCode}
 }
 
 // HasStatusCode returns true when one of the given error status code matches the one returned by the database.
@@ -15,21 +24,40 @@ func HasStatusCode(err error, statusCode ...int) bool {
 	if !ok {
 		return false
 	}
-	for _, num := range statusCode {
-		if e.statusCode == num {
+	code := e.StatusCode()
+	for _, c := range statusCode {
+		if code == c {
 			return true
 		}
 	}
 	return false
 }
 
-type numberedError struct {
+// GetStatusCode returns the status code encapsulated in the error.
+func GetStatusCode(err error) (code int, ok bool) {
+	e, ok := err.(statusCodedError)
+	if !ok {
+		return 0, false
+	}
+	return e.StatusCode(), true
+}
+
+type numberedError interface {
+	error
+	ErrorNum() int
+}
+
+type numberedErrorBehavior struct {
 	error
 	errorNum int
 }
 
+func (e *numberedErrorBehavior) ErrorNum() int {
+	return e.errorNum
+}
+
 func withErrorNum(err error, errorNum int) error {
-	return numberedError{err, errorNum}
+	return numberedErrorBehavior{err, errorNum}
 }
 
 // HasErrorNum returns true when one of the given error num matches the one returned by the database.
@@ -38,12 +66,22 @@ func HasErrorNum(err error, errorNum ...int) bool {
 	if !ok {
 		return false
 	}
-	for _, num := range errorNum {
-		if e.errorNum == num {
+	num := e.ErrorNum()
+	for _, n := range errorNum {
+		if num == n {
 			return true
 		}
 	}
 	return false
+}
+
+// GetErrorNum returns the database error num encapsulated in the error.
+func GetErrorNum(err error) (errorNum int, ok bool) {
+	e, ok := err.(numberedError)
+	if !ok {
+		return 0, false
+	}
+	return e.ErrorNum(), true
 }
 
 // IsErrInvalidRequest returns true when the database returns a 400.
