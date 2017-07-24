@@ -187,7 +187,7 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 
 	req, err := http.NewRequest(
 		q.Method(),
-		fmt.Sprintf("%s/_db/%s/%s", db.endpoint, db.dbName, q.Path()),
+		fmt.Sprintf("%s/_db/%s%s", db.endpoint, db.dbName, q.Path()),
 		bytes.NewBuffer(q.Generate()),
 	)
 	if err != nil {
