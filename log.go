@@ -1,7 +1,10 @@
 package arangolite
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -34,28 +37,46 @@ type loggingSender struct {
 }
 
 func (s *loggingSender) Send(ctx context.Context, cli *http.Client, req *http.Request) (*response, error) {
-	if s.verbosity == LogDebug {
+	dump := bytes.NewBuffer(nil)
+	defer func() { s.logger.Print(dump.String()) }()
+
+	dump.WriteString("\nRequest:")
+	switch s.verbosity {
+	case LogSummary:
+		dump.WriteString(fmt.Sprintf(" %s %s \n", req.Method, req.URL.EscapedPath()))
+	case LogDebug:
+		dump.WriteString("\n")
 		r, _ := httputil.DumpRequestOut(req, true)
-		s.logger.Println("Request:")
-		s.logger.Println(string(r))
+		dump.Write(r)
+		dump.WriteString("\n\n")
 	}
 
 	now := time.Now()
-
 	res, err := s.sender.Send(ctx, cli, req)
 	if err != nil {
-		s.logger.Printf("Send error: %s\n", err.Error())
+		dump.WriteString("Send error: ")
+		dump.WriteString(err.Error())
+		dump.WriteString("\n")
 		return nil, err
 	}
 	if res.parsed.Error {
-		s.logger.Printf("Database error: %s\n", res.parsed.ErrorMessage)
+		dump.WriteString("Database error: ")
+		dump.WriteString(res.parsed.ErrorMessage)
+		dump.WriteString("\n")
 		return res, nil
 	}
 
-	s.logger.Printf("Success in %v:\n", time.Since(now))
+	dump.WriteString("Success in ")
+	dump.WriteString(time.Since(now).String())
 	if s.verbosity == LogDebug {
-		s.logger.Println(string(res.raw))
+		// buf := bytes.NewBuffer(nil)
+		// raw := res.raw
+		dump.WriteString(":\n")
+		if err := json.Indent(dump, res.raw, "", "\t"); err != nil {
+			dump.Write(res.raw)
+		}
 	}
+	dump.WriteString("\n")
 
 	return res, nil
 }
