@@ -54,7 +54,7 @@ func (s *loggingSender) Send(ctx context.Context, cli *http.Client, req *http.Re
 
 	s.logger.Printf("Success in %v:\n", time.Since(now))
 	if s.verbosity == LogDebug {
-		s.logger.Println(res.raw)
+		s.logger.Println(string(res.raw))
 	}
 
 	return res, nil
