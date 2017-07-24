@@ -10,12 +10,18 @@ type statusCodedErrorBehavior struct {
 	statusCode int
 }
 
-func (e *statusCodedErrorBehavior) StatusCode() int {
+func (e statusCodedErrorBehavior) StatusCode() int {
 	return e.statusCode
 }
 
 func withStatusCode(err error, statusCode int) error {
-	return statusCodedErrorBehavior{err, statusCode}
+	return struct {
+		error
+		statusCodedErrorBehavior
+	}{
+		err,
+		statusCodedErrorBehavior{statusCode: statusCode},
+	}
 }
 
 // HasStatusCode returns true when one of the given error status code matches the one returned by the database.
@@ -52,12 +58,18 @@ type numberedErrorBehavior struct {
 	errorNum int
 }
 
-func (e *numberedErrorBehavior) ErrorNum() int {
+func (e numberedErrorBehavior) ErrorNum() int {
 	return e.errorNum
 }
 
 func withErrorNum(err error, errorNum int) error {
-	return numberedErrorBehavior{err, errorNum}
+	return struct {
+		error
+		numberedErrorBehavior
+	}{
+		err,
+		numberedErrorBehavior{errorNum: errorNum},
+	}
 }
 
 // HasErrorNum returns true when one of the given error num matches the one returned by the database.
