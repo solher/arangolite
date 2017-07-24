@@ -85,7 +85,7 @@ func TestOptionsSend(t *testing.T) {
 		if username, password, _ := r.BasicAuth(); username != "foo" || password != "bar" {
 			status = 500
 		}
-		if r.URL.String() != fmt.Sprintf("http://foobar:80/_db/foobar/%s", requests.NewAQL("").Path()) {
+		if r.URL.String() != fmt.Sprintf("http://foobar:80/_db/foobar%s", requests.NewAQL("").Path()) {
 			status = 500
 		}
 		w.WriteHeader(status)
