@@ -224,9 +224,15 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 // followCursor follows the cursor of the given response and returns
 // all elements of every batch returned by the database.
 func (db *Database) followCursor(ctx context.Context, r Response) ([]byte, error) {
-	// If the result only has one page or isn't a JSON array, we only return the first batch.
-	if !r.HasMore() || len(r.RawResult()) == 0 || r.RawResult()[0] != '[' {
-		return r.RawResult(), nil
+	// If the result only has one page
+	if !r.HasMore() {
+		if len(r.RawResult()) != 0 {
+			// Parsed result is not empty, so return this
+			return r.RawResult(), nil
+		} else {
+			// Return the raw result
+			return r.Raw(), nil
+		}
 	}
 
 	buf := bytes.NewBuffer(r.RawResult()[:len(r.RawResult())-1])
