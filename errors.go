@@ -1,99 +1,143 @@
 package arangolite
 
-type statusCodedError interface {
-	error
+type causer interface {
+	Cause() error
+}
+
+type causerBehavior struct {
+	cause error
+}
+
+func (e *causerBehavior) Cause() error {
+	return e.cause
+}
+
+type statusCoder interface {
 	StatusCode() int
 }
 
-type statusCodedErrorBehavior struct {
-	error
+type statusCoderBehavior struct {
 	statusCode int
 }
 
-func (e statusCodedErrorBehavior) StatusCode() int {
+func (e *statusCoderBehavior) StatusCode() int {
 	return e.statusCode
 }
 
 func withStatusCode(err error, statusCode int) error {
-	return struct {
+	return &struct {
 		error
-		statusCodedErrorBehavior
+		*causerBehavior
+		*statusCoderBehavior
 	}{
 		err,
-		statusCodedErrorBehavior{statusCode: statusCode},
+		&causerBehavior{cause: err},
+		&statusCoderBehavior{statusCode: statusCode},
 	}
 }
 
 // HasStatusCode returns true when one of the given error status code matches the one returned by the database.
 func HasStatusCode(err error, statusCode ...int) bool {
-	e, ok := err.(statusCodedError)
-	if !ok {
-		return false
-	}
-	code := e.StatusCode()
-	for _, c := range statusCode {
-		if code == c {
-			return true
+	for err != nil {
+		e, ok := err.(statusCoder)
+		if !ok {
+			if cause, ok := err.(causer); ok {
+				err = cause.Cause()
+				continue
+			} else {
+				break
+			}
 		}
+		code := e.StatusCode()
+		for _, c := range statusCode {
+			if code == c {
+				return true
+			}
+		}
+		break
 	}
 	return false
 }
 
 // GetStatusCode returns the status code encapsulated in the error.
 func GetStatusCode(err error) (code int, ok bool) {
-	e, ok := err.(statusCodedError)
-	if !ok {
-		return 0, false
+	for err != nil {
+		e, ok := err.(statusCoder)
+		if !ok {
+			if cause, ok := err.(causer); ok {
+				err = cause.Cause()
+				continue
+			} else {
+				break
+			}
+		}
+		return e.StatusCode(), true
 	}
-	return e.StatusCode(), true
+	return 0, false
 }
 
-type numberedError interface {
-	error
+type errorNumbered interface {
 	ErrorNum() int
 }
 
-type numberedErrorBehavior struct {
-	error
+type errorNumberedBehavior struct {
 	errorNum int
 }
 
-func (e numberedErrorBehavior) ErrorNum() int {
+func (e *errorNumberedBehavior) ErrorNum() int {
 	return e.errorNum
 }
 
 func withErrorNum(err error, errorNum int) error {
-	return struct {
+	return &struct {
 		error
-		numberedErrorBehavior
+		*causerBehavior
+		*errorNumberedBehavior
 	}{
 		err,
-		numberedErrorBehavior{errorNum: errorNum},
+		&causerBehavior{cause: err},
+		&errorNumberedBehavior{errorNum: errorNum},
 	}
 }
 
 // HasErrorNum returns true when one of the given error num matches the one returned by the database.
 func HasErrorNum(err error, errorNum ...int) bool {
-	e, ok := err.(numberedError)
-	if !ok {
-		return false
-	}
-	num := e.ErrorNum()
-	for _, n := range errorNum {
-		if num == n {
-			return true
+	for err != nil {
+		e, ok := err.(errorNumbered)
+		if !ok {
+			if cause, ok := err.(causer); ok {
+				err = cause.Cause()
+				continue
+			} else {
+				break
+			}
 		}
+		num := e.ErrorNum()
+		for _, n := range errorNum {
+			if num == n {
+				return true
+			}
+		}
+		break
 	}
 	return false
 }
 
 // GetErrorNum returns the database error num encapsulated in the error.
 func GetErrorNum(err error) (errorNum int, ok bool) {
-	e, ok := err.(numberedError)
-	if !ok {
-		return 0, false
+	for err != nil {
+		e, ok := err.(errorNumbered)
+		if !ok {
+			if cause, ok := err.(causer); ok {
+				err = cause.Cause()
+				continue
+			} else {
+				break
+			}
+		}
+		return e.ErrorNum(), true
 	}
-	return e.ErrorNum(), true
+	return 0, false
 }
 
 // IsErrInvalidRequest returns true when the database returns a 400.
