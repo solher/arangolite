@@ -36,7 +36,9 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	}
 
 	parsed := parsedResponse{}
-	if strings.Contains(res.Header.Get("Content-Type"), "application/json") && raw[0] != '[' {
+	// Some API calls (such as /_api/aqlfunction) return arrays, so we have to check that
+	// the body is a JSON object before trying to unmarshal.
+	if strings.Contains(res.Header.Get("Content-Type"), "application/json") && raw[0] == '{' {
 		if err := json.Unmarshal(raw, &parsed); err != nil {
 			return nil, errors.Wrap(err, "could not decode the json database response")
 		}
