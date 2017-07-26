@@ -154,20 +154,28 @@ func TestRun(t *testing.T) {
 	var testCases = []struct {
 		// Case description
 		description string
+		// Query to pass to Run()
+		query arangolite.Runnable
+		// Where to store the result
+		result interface{}
 		// Arguments
 		dbHandler http.HandlerFunc
 		// Expected results
 		testErr func(err error) bool
-		result  interface{}
+		expectedResult interface{}
 	}{
 		{
 			description: "database execution succeeds one page",
+			query: requests.NewAQL(""),
+			result: &[]arangolite.Document{},
 			dbHandler:   handler(200, `{"result": [{"_id":"1234"}], "hasMore": false, "cached": true}`),
 			testErr:     func(err error) bool { return err == nil },
-			result:      []arangolite.Document{{ID: "1234"}},
+			expectedResult: &[]arangolite.Document{{ID: "1234"}},
 		},
 		{
 			description: "database execution succeeds two pages",
+			query: requests.NewAQL(""),
+			result: &[]arangolite.Document{},
 			dbHandler: cursorHandler(
 				200,
 				[]string{
@@ -177,7 +185,66 @@ func TestRun(t *testing.T) {
 				"foobar",
 			),
 			testErr: func(err error) bool { return err == nil },
-			result:  []arangolite.Document{{ID: "1234"}, {ID: "4321"}},
+			expectedResult:  &[]arangolite.Document{{ID: "1234"}, {ID: "4321"}},
+		},
+		{
+			description: "database execution test status code and error num",
+			query: requests.NewAQL(""),
+			result: &[]arangolite.Document{},
+			dbHandler: handlerContentType(
+				404,
+				`{"error":true,"code":404,"errorNum":1203,"errorMessage":"unknown collection 'items'"}`,
+				"application/json",
+			),
+			testErr: func(err error) bool {
+				return arangolite.HasStatusCode(err, 404) && arangolite.HasErrorNum(err, 1203)
+			},
+			expectedResult:  &[]arangolite.Document{},
+		},
+		{
+			description: "database execution requests.GetVersion",
+			query: &requests.GetVersion{Details: false},
+			result: &requests.GetVersionResult{},
+			dbHandler: handler(200, `{"server":"arango","version":"3.0.12"}`),
+			testErr: func(err error) bool { return err == nil },
+			expectedResult: &requests.GetVersionResult{Server: "arango", Version: "3.0.12"},
+		},
+		{
+			description: "database execution requests.GetVersion detailed",
+			query: &requests.GetVersion{Details: true},
+			result: &requests.GetVersionResult{},
+			dbHandler: handler(
+				200,
+				`{"server":"arango","version":"3.0.12","details":{"architecture":"64bit","endianness":"little","sizeof int":"4","sizeof void*":"8","sse42":"false","mode":"server"}}`,
+			),
+			testErr: func(err error) bool { return err == nil },
+			expectedResult: &requests.GetVersionResult{
+				Server: "arango",
+				Version: "3.0.12",
+				Details: map[string]string{"architecture":"64bit","endianness":"little",
+					"sizeof int":"4","sizeof void*":"8","sse42":"false","mode":"server"}},
+		},
+		{
+			description: "database execution empty parsed result 1",
+			query: requests.NewAQL(""),
+			result: &struct {ID string}{ID: ""},
+			dbHandler: handler(
+				200,
+				`{"id":"24292","name":"items","waitForSync":false,"isVolatile":false,"isSystem":false,"status":3,"type":2,"error":false,"code":200}`,
+			),
+			testErr: func(err error) bool { return err == nil },
+			expectedResult: &struct {ID string}{ID: "24292"},
+		},
+		{
+			description: "database execution empty parsed result 3",
+			query: requests.NewAQL(""),
+			result: &struct {ID string}{ID: ""},
+			dbHandler: handler(
+				200,
+				`{"id":"node_port_relations/365","type":"hash","fields":["property"],"selectivityEstimate":0.03125,"unique":false,"sparse":false,"isNewlyCreated":false,"error":false,"code":200}`,
+			),
+			testErr: func(err error) bool { return err == nil },
+			expectedResult: &struct {ID string}{ID: "node_port_relations/365"},
 		},
 	}
 
@@ -185,16 +252,14 @@ func TestRun(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			server.Config.Handler = tc.dbHandler
-			db := arangolite.NewDatabase(
-				arangolite.OptHTTPClient(client),
-			)
-			documents := []arangolite.Document{}
-			err := db.Run(ctx, &documents, requests.NewAQL(""))
+			db := arangolite.NewDatabase(arangolite.OptHTTPClient(client))
+			err := db.Run(ctx, tc.result, tc.query)
+
 			if ok := tc.testErr(err); !ok {
 				t.Errorf("unexpected error: %s", err)
 			}
-			if !reflect.DeepEqual(tc.result, documents) {
-				t.Errorf("unexpected result. Expected %v, got %v", tc.result, documents)
+			if !reflect.DeepEqual(tc.result, tc.expectedResult) {
+				t.Errorf("unexpected result. Expected %v, got %v", tc.expectedResult, tc.result)
 			}
 		})
 	}
@@ -326,6 +391,14 @@ func handler(status int, body string) http.HandlerFunc {
 		if status == 200 {
 			w.Header().Set("Content-Type", "application/json")
 		}
+		w.WriteHeader(status)
+		fmt.Fprintln(w, body)
+	})
+}
+
+func handlerContentType(status int, body string, contentType string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", contentType)
 		w.WriteHeader(status)
 		fmt.Fprintln(w, body)
 	})
