@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/solher/arangolite/requests"
 )
 
@@ -167,13 +167,13 @@ func (db *Database) Run(ctx context.Context, v interface{}, q Runnable) error {
 
 	result, err := db.followCursor(ctx, r)
 	if err != nil {
-		return errors.Wrap(err, "could not follow the query cursor")
+		return withMessage(err, "could not follow the query cursor")
 	}
 	if v == nil || result == nil || len(result) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(result, v); err != nil {
-		return errors.Wrap(err, "run result unmarshalling failed")
+		return withMessage(err, "run result unmarshalling failed")
 	}
 
 	return nil
@@ -191,11 +191,11 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 		bytes.NewBuffer(q.Generate()),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "the http request generation failed")
+		return nil, withMessage(err, "the http request generation failed")
 	}
 
 	if err := db.auth.Apply(req); err != nil {
-		return nil, errors.Wrap(err, "authentication returned an error")
+		return nil, withMessage(err, "authentication returned an error")
 	}
 
 	res, err := db.sender.Send(ctx, db.cli, req)
@@ -203,12 +203,12 @@ func (db *Database) Send(ctx context.Context, q Runnable) (Response, error) {
 		return nil, err
 	}
 	if res.parsed.Error {
-		err = errors.Wrap(errors.New(res.parsed.ErrorMessage), "the database execution returned an error")
+		err = withMessage(errors.New(res.parsed.ErrorMessage), "the database execution returned an error")
 		err = withErrorNum(err, res.parsed.ErrorNum)
 	}
 	if res.statusCode < 200 || res.statusCode >= 300 {
 		if err == nil {
-			err = errors.Errorf("the database HTTP request failed: status code %d", res.statusCode)
+			err = fmt.Errorf("the database HTTP request failed: status code %d", res.statusCode)
 		}
 		err = withStatusCode(err, res.statusCode)
 	}
@@ -229,10 +229,9 @@ func (db *Database) followCursor(ctx context.Context, r Response) ([]byte, error
 		if len(r.RawResult()) != 0 {
 			// Parsed result is not empty, so return this
 			return r.RawResult(), nil
-		} else {
-			// Return the raw result
-			return r.Raw(), nil
 		}
+		// Return the raw result
+		return r.Raw(), nil
 	}
 
 	buf := bytes.NewBuffer(r.RawResult()[:len(r.RawResult())-1])

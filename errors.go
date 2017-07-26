@@ -1,5 +1,16 @@
 package arangolite
 
+import (
+	"fmt"
+)
+
+func withMessage(err error, message string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %s", message, err.Error())
+}
+
 type arangoError struct {
 	error
 	statusCode int
@@ -26,6 +37,7 @@ func withErrorNum(err error, errorNum int) error {
 	return aError
 }
 
+// HasStatusCode returns true when one of the given error status code matches the one returned by the database.
 func HasStatusCode(err error, statusCode ...int) bool {
 	e, ok := err.(arangoError)
 	if !ok {

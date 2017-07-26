@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type sender interface {
@@ -26,19 +23,19 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	}
 	res, err := cli.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "the database HTTP request failed")
+		return nil, withMessage(err, "the database HTTP request failed")
 	}
 
 	raw, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read the database response")
+		return nil, withMessage(err, "could not read the database response")
 	}
 
 	parsed := parsedResponse{}
 	if strings.Contains(res.Header.Get("Content-Type"), "application/json") {
 		if err := json.Unmarshal(raw, &parsed); err != nil {
-			return nil, errors.Wrap(err, "could not decode the json database response")
+			return nil, withMessage(err, "could not decode the json database response")
 		}
 	}
 
@@ -83,14 +80,14 @@ func (r *response) Cursor() string {
 
 func (r *response) Unmarshal(v interface{}) error {
 	if err := json.Unmarshal(r.raw, v); err != nil {
-		return errors.Wrap(err, "response unmarshalling failed")
+		return withMessage(err, "response unmarshalling failed")
 	}
 	return nil
 }
 
 func (r *response) UnmarshalResult(v interface{}) error {
 	if err := json.Unmarshal(r.parsed.Result, v); err != nil {
-		return errors.Wrap(err, "response result unmarshalling failed")
+		return withMessage(err, "response result unmarshalling failed")
 	}
 	return nil
 }

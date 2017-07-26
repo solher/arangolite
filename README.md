@@ -12,7 +12,6 @@ The new `v2.0.0` version is a major evolution. It brings (sadly) some breaking c
 - A less awkward API, more focused and I hope, clearer.
 - All the goroutine magic purely and simply deleted.
 - The weird custom logger replaced by a more standard and simple one.
-- New powerful [pkg/errors](https://github.com/pkg/errors) based error handling.
 - Context support allowing request cancellation.
 - JWT support added.
 - More lightweight than ever.
@@ -231,8 +230,6 @@ db.Run(ctx, nil, &requests.DropGraph{Name: "graphName", DropCollections: true})
 ```
 
 ## Error Handling
-
-All the errors returned by Arangolite are wrapped using [pkg/errors](https://github.com/pkg/errors).
 
 Errors can be handled using the provided basic testers:
 
