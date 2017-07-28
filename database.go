@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"runtime"
@@ -60,7 +59,7 @@ func OptHTTPClient(cli *http.Client) Option {
 }
 
 // OptLogging enables logging of the exchanges with the database.
-func OptLogging(logger *log.Logger, verbosity LogVerbosity) Option {
+func OptLogging(logger Logger, verbosity LogVerbosity) Option {
 	return func(db *Database) {
 		if logger != nil {
 			db.sender = newLoggingSender(db.sender, logger, verbosity)

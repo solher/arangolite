@@ -5,24 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"time"
 )
 
+type Logger interface {
+	Print(v ...interface{})
+}
+
 // LogVerbosity is the logging verbosity.
 type LogVerbosity int
 
 const (
+	// LogNone no log output
+	LogNone LogVerbosity = iota
 	// LogSummary prints a simple summary of the exchanges with the database.
-	LogSummary LogVerbosity = iota
+	LogSummary
 	// LogDebug prints all the sent and received http requests.
 	LogDebug
 )
 
 // newLoggingSender returns a logging wrapper around a sender.
-func newLoggingSender(sender sender, logger *log.Logger, verbosity LogVerbosity) sender {
+func newLoggingSender(sender sender, logger Logger, verbosity LogVerbosity) sender {
 	return &loggingSender{
 		sender:    sender,
 		logger:    logger,
@@ -32,7 +37,7 @@ func newLoggingSender(sender sender, logger *log.Logger, verbosity LogVerbosity)
 
 type loggingSender struct {
 	sender    sender
-	logger    *log.Logger
+	logger    Logger
 	verbosity LogVerbosity
 }
 

@@ -76,7 +76,8 @@ func TestConnect(t *testing.T) {
 
 // TestOptionsSend runs tests on the impact of options on the database Send method.
 func TestOptionsSend(t *testing.T) {
-	logger := log.New(ioutil.Discard, "", 0)
+	var logger arangolite.Logger
+	logger = log.New(ioutil.Discard, "", 0)
 	client, server := httpMock()
 	defer server.Close()
 	// We add a handler that only return a 200 if all the request parameters are correctly set
@@ -101,7 +102,7 @@ func TestOptionsSend(t *testing.T) {
 		dbName             string
 		endpoint           string
 		httpClient         *http.Client
-		logger             *log.Logger
+		logger             arangolite.Logger
 		verbosity          arangolite.LogVerbosity
 		// Expected results
 		testErr func(err error) bool
@@ -269,6 +270,8 @@ func TestRun(t *testing.T) {
 func TestSend(t *testing.T) {
 	client, server := httpMock()
 	defer server.Close()
+	var logger arangolite.Logger
+	logger = log.New(ioutil.Discard, "", 0)
 
 	var testCases = []struct {
 		// Case description
@@ -348,7 +351,7 @@ func TestSend(t *testing.T) {
 			server.Config.Handler = tc.dbHandler
 			db := arangolite.NewDatabase(
 				arangolite.OptHTTPClient(client),
-				arangolite.OptLogging(log.New(ioutil.Discard, "", 0), arangolite.LogDebug),
+				arangolite.OptLogging(logger, arangolite.LogDebug),
 			)
 			result, err := db.Send(ctx, requests.NewAQL(""))
 			if ok := tc.testErr(err); !ok {
