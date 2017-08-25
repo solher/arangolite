@@ -21,7 +21,8 @@ func (s *basicSender) Send(ctx context.Context, cli *http.Client, req *http.Requ
 	default:
 		break
 	}
-	res, err := cli.Do(req)
+
+	res, err := cli.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, withMessage(err, "the database HTTP request failed")
 	}
