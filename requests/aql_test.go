@@ -103,6 +103,16 @@ func TestAQL(t *testing.T) {
 				Cache: false,
 			},
 		},
+		{
+			description: "quotes are replaced by single quotes, even from parameters",
+			query:       `UPSERT { "id":"foo" } INSERT %s UPDATE {} IN bar`,
+			params:      []interface{}{`{ "id":"foo" }`},
+			cache:       false,
+			output: aql{
+				Query: `UPSERT { 'id':'foo' } INSERT { 'id':'foo' } UPDATE {} IN bar`,
+				Cache: false,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
