@@ -4,29 +4,9 @@ Arangolite is a lightweight ArangoDB driver for Go.
 
 It focuses on pure AQL querying. See [AranGO](https://github.com/diegogub/aranGO) for a more ORM-like experience.
 
-## V2.0.0
-### Changelog
+## IMPORTANT: Looking for maintainers
 
-The new `v2.0.0` version is a major evolution. It brings (sadly) some breaking changes and (happily) a lot of improvements:
-
-- A less awkward API, more focused and I hope, clearer.
-- All the goroutine magic purely and simply deleted.
-- The weird custom logger replaced by a more standard and simple one.
-- Context support allowing request cancellation.
-- JWT support added.
-- More lightweight than ever.
-- Filter generator moved to a separate repository: [Arangofilters](https://github.com/solher/arangofilters).
-
-Operations on database clusters are not yet implemented. PRs concerning cluster support would be greatly appreciated.
-
-### Migration guide
-
-The API being relatively small, refactoring should take only a few adjustments and find and replaces.
-
-- Database initialisation has to follow the new API.
-- Core method calls have to be migrated to the new API.
-- The `Runnables` are moved to the `request` package (`arangolite.NewTransaction` -> `requests.NewTransaction`).
-- A `Query` is now explicitely `AQL` (`arangolite.NewQuery` -> `requests.NewAQL`, `.AddQuery` -> `.AddAQL`).
+I don't have as much time as I used to have and I am not as a frequent user of ArangoDB as I used to be. This project would definitely benefit from some new maintainers. Any PR is greatly appreciated.
 
 ## Installation
 
