@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/solher/arangolite/requests"
+	"github.com/solher/arangolite/v2/requests"
 )
 
 // Option sets an option for the database connection.
