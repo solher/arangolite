@@ -12,7 +12,7 @@ I don't have as much time as I used to have and I am not as a frequent user of A
 
 To install Arangolite:
 
-    go get -u github.com/solher/arangolite
+    go get -u github.com/solher/arangolite/v2
 
 ## Basic Usage
 
@@ -24,8 +24,8 @@ import (
   "fmt"
   "log"
 
-  "github.com/solher/arangolite"
-  "github.com/solher/arangolite/requests"
+  "github.com/solher/arangolite/v2"
+  "github.com/solher/arangolite/v2/requests"
 )
 
 type Node struct {
