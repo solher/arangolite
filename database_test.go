@@ -14,8 +14,8 @@ import (
 
 	"strings"
 
-	"github.com/solher/arangolite"
-	"github.com/solher/arangolite/requests"
+	"github.com/solher/arangolite/v2"
+	"github.com/solher/arangolite/v2/requests"
 )
 
 // TestConnect runs tests on the database Connect method.
@@ -162,21 +162,21 @@ func TestRun(t *testing.T) {
 		// Arguments
 		dbHandler http.HandlerFunc
 		// Expected results
-		testErr func(err error) bool
+		testErr        func(err error) bool
 		expectedResult interface{}
 	}{
 		{
-			description: "database execution succeeds one page",
-			query: requests.NewAQL(""),
-			result: &[]arangolite.Document{},
-			dbHandler:   handler(200, `{"result": [{"_id":"1234"}], "hasMore": false, "cached": true}`),
-			testErr:     func(err error) bool { return err == nil },
+			description:    "database execution succeeds one page",
+			query:          requests.NewAQL(""),
+			result:         &[]arangolite.Document{},
+			dbHandler:      handler(200, `{"result": [{"_id":"1234"}], "hasMore": false, "cached": true}`),
+			testErr:        func(err error) bool { return err == nil },
 			expectedResult: &[]arangolite.Document{{ID: "1234"}},
 		},
 		{
 			description: "database execution succeeds two pages",
-			query: requests.NewAQL(""),
-			result: &[]arangolite.Document{},
+			query:       requests.NewAQL(""),
+			result:      &[]arangolite.Document{},
 			dbHandler: cursorHandler(
 				200,
 				[]string{
@@ -185,13 +185,13 @@ func TestRun(t *testing.T) {
 				},
 				"foobar",
 			),
-			testErr: func(err error) bool { return err == nil },
-			expectedResult:  &[]arangolite.Document{{ID: "1234"}, {ID: "4321"}},
+			testErr:        func(err error) bool { return err == nil },
+			expectedResult: &[]arangolite.Document{{ID: "1234"}, {ID: "4321"}},
 		},
 		{
 			description: "database execution test status code and error num",
-			query: requests.NewAQL(""),
-			result: &[]arangolite.Document{},
+			query:       requests.NewAQL(""),
+			result:      &[]arangolite.Document{},
 			dbHandler: handlerContentType(
 				404,
 				`{"error":true,"code":404,"errorNum":1203,"errorMessage":"unknown collection 'items'"}`,
@@ -200,52 +200,52 @@ func TestRun(t *testing.T) {
 			testErr: func(err error) bool {
 				return arangolite.HasStatusCode(err, 404) && arangolite.HasErrorNum(err, 1203)
 			},
-			expectedResult:  &[]arangolite.Document{},
+			expectedResult: &[]arangolite.Document{},
 		},
 		{
-			description: "database execution requests.GetVersion",
-			query: &requests.GetVersion{Details: false},
-			result: &requests.GetVersionResult{},
-			dbHandler: handler(200, `{"server":"arango","version":"3.0.12"}`),
-			testErr: func(err error) bool { return err == nil },
+			description:    "database execution requests.GetVersion",
+			query:          &requests.GetVersion{Details: false},
+			result:         &requests.GetVersionResult{},
+			dbHandler:      handler(200, `{"server":"arango","version":"3.0.12"}`),
+			testErr:        func(err error) bool { return err == nil },
 			expectedResult: &requests.GetVersionResult{Server: "arango", Version: "3.0.12"},
 		},
 		{
 			description: "database execution requests.GetVersion detailed",
-			query: &requests.GetVersion{Details: true},
-			result: &requests.GetVersionResult{},
+			query:       &requests.GetVersion{Details: true},
+			result:      &requests.GetVersionResult{},
 			dbHandler: handler(
 				200,
 				`{"server":"arango","version":"3.0.12","details":{"architecture":"64bit","endianness":"little","sizeof int":"4","sizeof void*":"8","sse42":"false","mode":"server"}}`,
 			),
 			testErr: func(err error) bool { return err == nil },
 			expectedResult: &requests.GetVersionResult{
-				Server: "arango",
+				Server:  "arango",
 				Version: "3.0.12",
-				Details: map[string]string{"architecture":"64bit","endianness":"little",
-					"sizeof int":"4","sizeof void*":"8","sse42":"false","mode":"server"}},
+				Details: map[string]string{"architecture": "64bit", "endianness": "little",
+					"sizeof int": "4", "sizeof void*": "8", "sse42": "false", "mode": "server"}},
 		},
 		{
 			description: "database execution empty parsed result 1",
-			query: requests.NewAQL(""),
-			result: &struct {ID string}{ID: ""},
+			query:       requests.NewAQL(""),
+			result:      &struct{ ID string }{ID: ""},
 			dbHandler: handler(
 				200,
 				`{"id":"24292","name":"items","waitForSync":false,"isVolatile":false,"isSystem":false,"status":3,"type":2,"error":false,"code":200}`,
 			),
-			testErr: func(err error) bool { return err == nil },
-			expectedResult: &struct {ID string}{ID: "24292"},
+			testErr:        func(err error) bool { return err == nil },
+			expectedResult: &struct{ ID string }{ID: "24292"},
 		},
 		{
 			description: "database execution empty parsed result 3",
-			query: requests.NewAQL(""),
-			result: &struct {ID string}{ID: ""},
+			query:       requests.NewAQL(""),
+			result:      &struct{ ID string }{ID: ""},
 			dbHandler: handler(
 				200,
 				`{"id":"node_port_relations/365","type":"hash","fields":["property"],"selectivityEstimate":0.03125,"unique":false,"sparse":false,"isNewlyCreated":false,"error":false,"code":200}`,
 			),
-			testErr: func(err error) bool { return err == nil },
-			expectedResult: &struct {ID string}{ID: "node_port_relations/365"},
+			testErr:        func(err error) bool { return err == nil },
+			expectedResult: &struct{ ID string }{ID: "node_port_relations/365"},
 		},
 	}
 
